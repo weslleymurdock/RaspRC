@@ -1,10 +1,10 @@
-name: learn-github-actions
+name: build
 on: 
   pull_request:
     branches:
       - main
 jobs:
-  build-rx:
+  build:
     runs-on: [self-hosted]
       labels: raspberry
     env:
@@ -26,4 +26,4 @@ jobs:
           cd ./src/Rx/
           dotnet restore
           dotnet build --configuration Relase --no-restore
-          
+           

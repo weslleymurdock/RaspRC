@@ -1,14 +1,14 @@
-name: "Deploy"
+name: Deploy
 
 on:
-    push:
+  push:
     branches:
-        - main
+    - main
        
     workflow_dispatch:
       
 jobs:
-    deploy:
+  deploy:
     name: Deploy 
     runs-on: self-hosted
     env:
