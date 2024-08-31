@@ -1,31 +1,36 @@
 name: build
-on: 
-  pull_request:
+
+
+on:
+  push:
     branches:
-      - main
-  workflow-dispatch:
+    - main
+       
+    workflow_dispatch:
+      
 
 jobs:
   build:
-    runs-on: [self-hosted]
-      labels: raspberry
+    name: "Build RX" 
+    runs-on: self-hosted
     env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: 1
-      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-      DOTNET_NOLOGO: true
-      DOTNET_GENERATE_ASPNET_CERTIFICATE: false
-      DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: false
-      DOTNET_MULTILEVEL_LOOKUP: 0
-      DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
-      TERM: xterm
-
+        DOTNET_CLI_TELEMETRY_OPTOUT: 1
+        DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+        DOTNET_NOLOGO: true
+        DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+        DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: false
+        DOTNET_MULTILEVEL_LOOKUP: 0
+        DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
+        
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.*'
-      - run: |
-          cd ./src/Rx/
-          dotnet restore
-          dotnet build --configuration Relase --no-restore
-           
+    - uses: actions/checkout@v4
+      
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.*
+
+    - name: Deploy
+      run: |
+        cd ./src/Rx
+        dotnet restore
+        dotnet build -c Release --no-restore     
