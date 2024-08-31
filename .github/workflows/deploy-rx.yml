@@ -61,7 +61,7 @@ jobs:
         sudo echo "    ErrorLog ${APACHE_LOG_DIR}/rasp.local-error.log" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "    CustomLog ${APACHE_LOG_DIR}/rasp.local-access.log combined" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo " " >>  /etc/apache2/sites-available/rasp.local.conf    
+          
 - name: Deploy
       run: |
         cd ./src/Rx
