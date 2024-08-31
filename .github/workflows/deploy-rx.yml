@@ -27,11 +27,48 @@ jobs:
       with:
         dotnet-version: 8.0.*
 
-    - name: Restore
+    - name: Apache
+      run: |
+        sudo apt install apache2 -y
+        sudo usermod -a -G www-data $USER
+        sudo chown -R -f www-data:www-data /var/www/html
+        sudo mkdir -p /var/www/rx/wwwroot
+        sudo chown -R -f www-data:www-data /var/www/rx
+        sudo chown -R -f www-data:www-data /var/www/rx/wwwroot
+        sudo touch /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "<VirtualHost *:80>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    ServerName www.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    ServerAlias *.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    DocumentRoot /var/www/rx/wwwroot" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    AddType application/wasm .wasm" >> /etc/apache2/sites-available/rasp.local.conf 
+        sudo echo "    AddType application/octet-stream .dll" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    <Directory /var/www/rx>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        Options -Indexes" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        AllowOverride None" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    </Directory>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    <IfModule mod_deflate.c>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        AddOutputFilterByType DEFLATE text/css" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        AddOutputFilterByType DEFLATE application/javascript" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        AddOutputFilterByType DEFLATE text/html" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        AddOutputFilterByType DEFLATE application/octet-stream" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        AddOutputFilterByType DEFLATE application/wasm" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        <IfModule mod_setenvif.c>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "            BrowserMatch ^Mozilla/4 gzip-only-text/html" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "            BrowserMatch ^Mozilla/4.0[678] no-gzip" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "            BrowserMatch bMSIE !no-gzip !gzip-only-text/html" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "        </IfModule>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    </IfModule>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    ErrorLog ${APACHE_LOG_DIR}/rasp.local-error.log" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    CustomLog ${APACHE_LOG_DIR}/rasp.local-access.log combined" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo " " >>  /etc/apache2/sites-available/rasp.local.conf    
+- name: Deploy
       run: |
         cd ./src/Rx
         dotnet restore
         dotnet build -c Release --no-restore
         dotnet publish -c Release -r linux-arm64 /p:PublishDir=/var/www/rx
-        sudo systemctl apache2 restart
-    
+        sudo a2dissite 000-default.conf
+        sudo a2ensite rasp.local.conf
+        sudo systemctl reload apache2        
+        
