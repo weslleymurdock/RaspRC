@@ -36,7 +36,7 @@ jobs:
         dotnet publish -c Release -r linux-arm64 /p:PublishDir=${{ github.workspace }}/src/Rx/publish
 
     - name: Setup SSH
-      run: |
+    - run: |
         mkdir -p ~/.ssh/
         echo "${{ secrets.SSH_PRIV }}" > ~/.ssh/id_rsa
         echo "${{ secrets.SSH_PUB }}" > ~/.ssh/id_rsa.pub
