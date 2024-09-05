@@ -19,4 +19,4 @@ sudo a2dissite *
 cd /etc/apache2/sites-available/
 sudo a2ensite rasp.local.conf
 sudo systemctl reload apache2
-sudo chown rx -R /var/www/rasprc-rx/
+chmod 755 -R /var/www/
