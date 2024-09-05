@@ -56,7 +56,7 @@ jobs:
       run: |
         ssh ${{ secrets.USER_IP }} "sudo ~/setup-apache.sh" 
         ssh ${{ secrets.USER_IP }} "sudo ~/setup-site.sh /home/rx"
-        ssh ${{ secrets.USER_IP }} "cd /etc/apache2/sites-enabled/ && sudo a2dissite '*' && cd sudo a2ensite rasp.local.conf && sudo systemctl reload apache2"  
+          
               
   deploy-tx:
     name: Deploy TX

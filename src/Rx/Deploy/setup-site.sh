@@ -11,3 +11,8 @@ sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
 sudo usermod -a -G www-data rx
 sudo chown -R -f www-data:www-data /var/www/rasprc-rx
 mv -v $1/publish/* /var/www/rasprc-rx
+cd /etc/apache2/sites-enabled/ 
+sudo a2dissite '*' 
+cd /etc/apache2/sites-available/
+sudo a2ensite rasp.local.conf
+sudo systemctl reload apache2
