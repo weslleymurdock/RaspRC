@@ -48,7 +48,7 @@ jobs:
       run: |
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-apache.sh ${{ secrets.USER_IP }}:~/
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-site.sh ${{ secrets.USER_IP }}:~/
-        rsync -a ${{ github.workspace }}/src/Rx/Deploy/rasp.local.conf ${{ secrets.USER_IP }}:~/    
+        rsync -a ${{ github.workspace }}/src/Rx/Deploy/rasp.local.* ${{ secrets.USER_IP }}:~/    
         ssh ${{ secrets.USER_IP }} "rm -rf ~/publish && mkdir -p ~/publish"  
         rsync -a ${{ github.workspace }}/src/Rx/publish/* ${{ secrets.USER_IP }}:~/publish 
     

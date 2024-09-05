@@ -1,5 +1,8 @@
 #!/bin/bash
 
+sudo cp -v $1/rasp.local.service /etc/systemd/system/
+sudo systemctl enable rasp.local.service
+sudo systemctl start rasp.local.service
 sudo touch /etc/apache2/sites-available/rasp.local.conf
 sudo echo "<VirtualHost *:80>" > /etc/apache2/sites-available/rasp.local.conf
 sudo echo "    ProxyPreserveHost On" >> /etc/apache2/sites-available/rasp.local.conf
@@ -10,9 +13,9 @@ sudo echo "    CustomLog ${APACHE_LOG_DIR}/rx-access.log common" >> /etc/apache2
 sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
 sudo usermod -a -G www-data rx
 sudo chown -R -f www-data:www-data /var/www/rasprc-rx
-mv -v $1/publish/* /var/www/rasprc-rx
-cd /etc/apache2/sites-enabled/ 
-sudo a2dissite '*' 
+mv -v $1/publish/* /var/www/rasprc-rx 
+sudo a2dissite $(sudo ls /etc/apache2/sites-enabled) 
 cd /etc/apache2/sites-available/
 sudo a2ensite rasp.local.conf
 sudo systemctl reload apache2
+
