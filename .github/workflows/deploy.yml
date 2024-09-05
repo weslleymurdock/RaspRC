@@ -44,21 +44,18 @@ jobs:
         chmod 600 ~/.ssh/id_rsa.pub
         ssh-keyscan -H ${{ secrets.IP }} >> ~/.ssh/known_hosts
     
-    - name: Copy Scripts
+    - name: Copy Assets
       run: |
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-apache.sh ${{ secrets.USER_IP }}:~/
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-site.sh ${{ secrets.USER_IP }}:~/
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/rasp.local.conf ${{ secrets.USER_IP }}:~/    
         ssh ${{ secrets.USER_IP }} "rm -rf ~/publish && mkdir -p ~/publish"  
-        rsync -vrn ${{ github.workspace }}/src/Rx/publish/* ${{ secrets.USER_IP }}:~/publish 
+        rsync -a ${{ github.workspace }}/src/Rx/publish/* ${{ secrets.USER_IP }}:~/publish 
     
     - name: Setup apache
       run: |
         ssh ${{ secrets.USER_IP }} "sudo ~/setup-apache.sh" 
-        ssh ${{ secrets.USER_IP }} "sudo ~/setup-site.sh /home/rx/"    
-    
-    - name: copy builds to server
-      run: |
+        ssh ${{ secrets.USER_IP }} "sudo ~/setup-site.sh /home/rx"
         ssh ${{ secrets.USER_IP }} "cd /etc/apache2/sites-enabled/ && sudo a2dissite '*' && cd sudo a2ensite rasp.local.conf && sudo systemctl reload apache2"  
               
   deploy-tx:
