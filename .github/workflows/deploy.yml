@@ -47,11 +47,12 @@ jobs:
     - name: Copy Scripts
       run: |
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-apache.sh ${{ secrets.USER_IP }}:~/
-        
+        rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-site.sh ${{ secrets.USER_IP }}:~/
+    
     - name: Setup apache
       run: |
         ssh ${{ secrets.USER_IP }} "sudo ~/setup-apache.sh" 
-        rsync -a ${{ github.workspace }}/src/Rx/Deploy/rasp.local.conf ${{ secrets.USER_IP }}:/etc/apache2/sites-available
+        ssh ${{ secrets.USER_IP }} "sudo ~/setup-site.sh"
    
     - name: copy builds to server
       run: |
