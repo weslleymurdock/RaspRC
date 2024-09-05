@@ -9,4 +9,4 @@ sudo echo "    ErrorLog ${APACHE_LOG_DIR}/rx-error.log" >> /etc/apache2/sites-av
 sudo echo "    CustomLog ${APACHE_LOG_DIR}/rx-access.log common" >> /etc/apache2/sites-available/rasp.local.conf
 sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
 
-
+mv -v $1/publish/* /var/www/rasprc-rx
