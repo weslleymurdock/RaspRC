@@ -48,12 +48,13 @@ jobs:
       run: |
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-apache.sh ${{ secrets.USER_IP }}:~/
         rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-site.sh ${{ secrets.USER_IP }}:~/
+        rsync -a ${{ github.workspace }}/src/Rx/Deploy/rasp.local.conf ${{ secrets.USER_IP }}:~/    
     
     - name: Setup apache
       run: |
         ssh ${{ secrets.USER_IP }} "sudo ~/setup-apache.sh" 
         ssh ${{ secrets.USER_IP }} "sudo ~/setup-site.sh"
-   
+        
     - name: copy builds to server
       run: |
         rsync -vrm ${{ github.workspace }}/src/Rx/publish/* ${{ secrets.USER_IP }}:/var/www/rasprc-rx/
