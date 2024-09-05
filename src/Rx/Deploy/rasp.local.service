@@ -6,7 +6,7 @@ Description=RX Web API Service
 WorkingDirectory=/var/www/rasprc-rx
 # systemd will run this executable to start the service
 # if /usr/bin/dotnet doesn't work, use `which dotnet` to find correct dotnet executable path
-ExecStart=/opt/dotnet/dotnet /var/www/rasprc-rx/Rx
+ExecStart=/opt/dotnet/dotnet /var/www/rasprc-rx/Rx.dll
 # to query logs using journalctl, set a logical name here  
 SyslogIdentifier=Rx
 
