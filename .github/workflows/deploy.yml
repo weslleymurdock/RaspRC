@@ -8,9 +8,9 @@ on:
     workflow_dispatch:
       
 jobs:
-  deploy:
-    name: Deploy 
-    runs-on: self-hosted
+  deploy-rx:
+    name: Deploy RX 
+    runs-on: ubuntu-latest
     env:
         DOTNET_CLI_TELEMETRY_OPTOUT: 1
         DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
@@ -23,6 +23,55 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.*
+
+    - name: Build & Publish
+      run: |
+        cd ./src/Rx
+        dotnet restore
+        dotnet build -c Release --no-restore
+        mkdir -p ${{ github.workspace }}/src/Rx/publish
+        dotnet publish -c Release -r linux-arm64 /p:PublishDir=${{ github.workspace }}/src/Rx/publish
+
+    - name: Setup SSH
+    - run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.SSH_PRIV }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.SSH_PUB }}" > ~/.ssh/id_rsa.pub
+        chmod 600 ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa.pub
+        ssh-keyscan -H ${{ secrets.IP }} >> ~/.ssh/known_hosts
+    
+    - name: Copy Scripts
+      run: |
+        rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-apache.sh ${{ secrets.USER_IP }}:~/
+        
+    - name: Setup apache
+        ssh ${{ secrets.USER_IP }} "sudo ~/setup-apache.sh" 
+        rsync -a ${{ github.workspace }}/src/Rx/Deploy/rasp.local.conf ${{ secrets.USER_IP }}:/etc/apache/sites-available
+   
+    - name: copy builds to server
+      run: |
+        rsync -vrm ${{ github.workspace }}/src/Rx/publish/* ${{ secrets.USER_IP }}:/var/www/rasprc-rx/
+        ssh ${{ secrets.USER_IP }} "cd /etc/apache/sites-enabled/ && sudo a2dissite '*' && cd sudo a2ensite rasp.local.conf && sudo systemctl reload apache2"  
+              
+  deploy-tx:
+    name: Deploy TX
+    runs-on: self-hosted
+    env:
+        DOTNET_CLI_TELEMETRY_OPTOUT: 1
+        DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+        DOTNET_NOLOGO: true
+        DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+        DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: false
+        DOTNET_MULTILEVEL_LOOKUP: 0
+        DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
+
+    steps:
+    - uses: actions/checkout@v4
+
     - uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.*
@@ -40,7 +89,7 @@ jobs:
         sudo echo "    ServerName www.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "    ServerAlias *.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "    DocumentRoot /var/www/rx/wwwroot" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    AddType application/wasm .wasm" >> /etc/apache2/sites-available/rasp.local.conf 
+        sudo echo "    AddType application/wasm .wasm" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "    AddType application/octet-stream .dll" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "    <Directory /var/www/rx>" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "        Options -Indexes" >> /etc/apache2/sites-available/rasp.local.conf
@@ -61,7 +110,7 @@ jobs:
         sudo echo "    ErrorLog ${APACHE_LOG_DIR}/rasp.local-error.log" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "    CustomLog ${APACHE_LOG_DIR}/rasp.local-access.log combined" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
-          
+
     - name: Deploy
       run: |
         cd ./src/Rx
@@ -71,4 +120,3 @@ jobs:
         sudo a2dissite 000-default.conf
         sudo a2ensite rasp.local.conf
         sudo systemctl reload apache2        
-        
