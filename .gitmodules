@@ -1,0 +1,3 @@
+[submodule "lib/joystick"]
+	path = lib/joystick
+	url = https://github.com/weslleymurdock/Input.Joystick.git

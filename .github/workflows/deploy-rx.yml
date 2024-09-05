@@ -27,48 +27,34 @@ jobs:
       with:
         dotnet-version: 8.0.*
 
-    - name: Apache
-      run: |
-        sudo apt install apache2 -y
-        sudo usermod -a -G www-data $USER
-        sudo chown -R -f www-data:www-data /var/www/html
-        sudo mkdir -p /var/www/rx/wwwroot
-        sudo chown -R -f www-data:www-data /var/www/rx
-        sudo chown -R -f www-data:www-data /var/www/rx/wwwroot
-        sudo touch /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "<VirtualHost *:80>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ServerName www.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ServerAlias *.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    DocumentRoot /var/www/rx/wwwroot" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    AddType application/wasm .wasm" >> /etc/apache2/sites-available/rasp.local.conf 
-        sudo echo "    AddType application/octet-stream .dll" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    <Directory /var/www/rx>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        Options -Indexes" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AllowOverride None" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    </Directory>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    <IfModule mod_deflate.c>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE text/css" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE application/javascript" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE text/html" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE application/octet-stream" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE application/wasm" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        <IfModule mod_setenvif.c>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "            BrowserMatch ^Mozilla/4 gzip-only-text/html" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "            BrowserMatch ^Mozilla/4.0[678] no-gzip" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "            BrowserMatch bMSIE !no-gzip !gzip-only-text/html" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        </IfModule>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    </IfModule>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ErrorLog ${APACHE_LOG_DIR}/rasp.local-error.log" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    CustomLog ${APACHE_LOG_DIR}/rasp.local-access.log combined" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
-          
-    - name: Deploy
+    - name: Build & Publish
       run: |
         cd ./src/Rx
         dotnet restore
         dotnet build -c Release --no-restore
-        dotnet publish -c Release -r linux-arm64 /p:PublishDir=/var/www/rx
-        sudo a2dissite 000-default.conf
-        sudo a2ensite rasp.local.conf
-        sudo systemctl reload apache2        
+        mkdir -p ${{ github.workspace }}/src/Rx/publish
+        dotnet publish -c Release -r linux-arm64 /p:PublishDir=${{ github.workspace }}/src/Rx/publish
+
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.SSH_PRIV }}" > ~/.ssh/id_rsa
+        echo "${{ secrets.SSH_PUB }}" > ~/.ssh/id_rsa.pub
+        chmod 600 ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa.pub
+        ssh-keyscan -H ${{ secrets.IP }} >> ~/.ssh/known_hosts
+    
+    - name: Copy Scripts
+      run: |
+        rsync -a ${{ github.workspace }}/src/Rx/Deploy/setup-apache.sh ${{ secrets.USER_IP }}:~/
+        
+    - name: Setup apache
+        ssh ${{ secrets.USER_IP }} "sudo ~/setup-apache.sh" 
+        rsync -a ${{ github.workspace }}/src/Rx/Deploy/rasp.local.conf ${{ secrets.USER_IP }}:/etc/apache/sites-available
+   
+    - name: copy builds to server
+      run: |
+        rsync -vrm ${{ github.workspace }}/src/Rx/publish/* ${{ secrets.USER_IP }}:/var/www/rasprc-rx/
+        ssh ${{ secrets.USER_IP }} "cd /etc/apache/sites-enabled/ && sudo a2dissite '*' && cd sudo a2ensite rasp.local.conf && sudo systemctl reload apache2"  
+              
         
