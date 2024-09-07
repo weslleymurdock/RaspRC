@@ -28,7 +28,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shared\Shared.csproj" />
-    <ProjectReference Include="..\..\lib\joystick\src\Input.Joystick\Input.Joystick.csproj" />
   </ItemGroup>
 
 </Project>

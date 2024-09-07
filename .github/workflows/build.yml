@@ -11,8 +11,8 @@ on:
 
 jobs:
   build:
-    name: "Build RX" 
-    runs-on: self-hosted
+    name: "Build sln" 
+    runs-on: ubuntu-latest
     env:
         DOTNET_INSTALL_DIR: /opt/dotnet
         DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -32,6 +32,6 @@ jobs:
 
     - name: Deploy
       run: |
-        cd ./src/Rx
+        cd ./src/
         dotnet restore
         dotnet build -c Release --no-restore     

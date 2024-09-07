@@ -21,9 +21,7 @@ jobs:
         DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
         
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: 'true'
+    - uses: actions/checkout@v4 
 
     - uses: actions/setup-dotnet@v4
       with:
@@ -72,9 +70,7 @@ jobs:
         DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION: true
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: 'true'
+    - uses: actions/checkout@v4 
 
     - uses: actions/setup-dotnet@v4
       with:
