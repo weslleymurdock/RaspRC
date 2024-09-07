@@ -79,6 +79,8 @@ jobs:
     - name: Apache
       run: |
         sudo apt install apache2 -y 
+        sudo a2enmod proxy proxy_http
+        sudo systemctl restart apache2
         sudo mkdir -p /var/www/rasprc-tx/
         sudo usermod -a -G www-data tx 
         sudo chown -R -f www-data:www-data /var/www/rasprc-tx/
