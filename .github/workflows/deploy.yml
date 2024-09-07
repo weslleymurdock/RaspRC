@@ -22,7 +22,9 @@ jobs:
         
     steps:
     - uses: actions/checkout@v4
-      
+      with:
+        submodules: 'true'
+
     - uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.*
@@ -71,6 +73,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: 'true'
 
     - uses: actions/setup-dotnet@v4
       with:
@@ -78,15 +82,15 @@ jobs:
 
     - name: Apache
       run: |
-        sudo apt install apache2 -y
-        sudo usermod -a -G www-data $USER
-        sudo chown -R -f www-data:www-data /var/www/html
+        sudo apt install apache2 -y 
         sudo mkdir -p /var/www/rasprc-tx/
+        sudo usermod -a -G www-data rx 
         sudo chown -R -f www-data:www-data /var/www/rasprc-tx/
         sudo cp -v ./src/Tx/Deploy/rasp.local.conf /etc/apache2/sites-available
 
     - name: Build & Publish
       run: |
+        sudo chmod 755 -R /var/www/rasprc-tx
         cd ./src/Tx
         dotnet restore
         dotnet build -c Release --no-restore
@@ -95,7 +99,6 @@ jobs:
         sudo a2dissite *
         sudo a2ensite rasp.local.conf
         sudo systemctl reload apache2        
-        chmod 755 -R /var/www/
 
     - name: Service
       run: |
