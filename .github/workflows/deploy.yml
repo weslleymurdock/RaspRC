@@ -106,4 +106,3 @@ jobs:
         sudo cp -v rasp.local.service /etc/systemd/system/
         sudo systemctl daemon-reload
         sudo systemctl enable rasp.local
-        systemctl start rasp.local
