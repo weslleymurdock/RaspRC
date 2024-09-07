@@ -84,7 +84,7 @@ jobs:
       run: |
         sudo apt install apache2 -y 
         sudo mkdir -p /var/www/rasprc-tx/
-        sudo usermod -a -G www-data rx 
+        sudo usermod -a -G www-data tx 
         sudo chown -R -f www-data:www-data /var/www/rasprc-tx/
         sudo cp -v ./src/Tx/Deploy/rasp.local.conf /etc/apache2/sites-available
 
