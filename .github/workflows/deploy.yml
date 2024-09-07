@@ -90,8 +90,9 @@ jobs:
         cd ./src/Tx
         dotnet restore
         dotnet build -c Release --no-restore
-        dotnet publish -c Release -r linux-arm64 /p:PublishDir=/var/www/rasprc-tx
-        cd /etc/apache2/sites-enabled
+        dotnet publish -c Release -r linux-arm64 
+        sudo mv -v bin/Release/net8.0/linux-arm64/publish/* /var/www/rasprc-tx
+        cd /etc/apache2/sites-enabled 
         sudo a2dissite *
         sudo a2ensite rasp.local.conf
         sudo systemctl reload apache2        
