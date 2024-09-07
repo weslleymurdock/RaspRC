@@ -83,14 +83,7 @@ jobs:
         sudo chown -R -f www-data:www-data /var/www/html
         sudo mkdir -p /var/www/rasprc-tx/
         sudo chown -R -f www-data:www-data /var/www/rasprc-tx/
-        sudo touch /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "<VirtualHost *:80>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ProxyPreserveHost On" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ProxyPass / http://127.0.0.1:5000/" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ProxyPassReverse / http://127.0.0.1:5000/" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ErrorLog ${APACHE_LOG_DIR}/tx-error.log" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    CustomLog ${APACHE_LOG_DIR}/rx-access.log common" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo cp -v ./src/Tx/Deploy/rasp.local.conf /etc/apache2/sites-available
 
     - name: Build & Publish
       run: |
