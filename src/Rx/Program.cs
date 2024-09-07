@@ -1,30 +1,32 @@
 using Rx.Services;
-using Rx.Models;
+using Shared.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
+builder.Services.AddSystemd();
+builder.Host.UseSystemd();
 // Register as singleton first so it can be injected through Dependency Injection
-builder.Services.AddSingleton<NRFService>();
-
+builder.Services.AddSingleton<ReceiverService>();
+//builder.Services.AddSingleton<ReceiverService>();
 // Add as hosted service using the instance registered as singleton before
 builder.Services.AddHostedService(
-    provider => provider.GetRequiredService<NRFService>());
+    provider => provider.GetRequiredService<ReceiverService>());
 
 WebApplication app = builder.Build();
 
 app.MapGet("/", () => "RaspRC Receiver");
-app.MapGet("/background", (
-    NRFService service) =>
+app.MapGet("/receiver", (
+    ReceiverService service) =>
 {
-    return new NRFState(service.IsEnabled);
+    return new ReceiverState(service.IsEnabled);
 });
-app.MapMethods("/background", new[] { "PATCH" }, (
-    NRFState state, 
-    NRFService service) =>
+
+app.MapMethods("/receiver", ["PATCH"], (
+    ReceiverState state, 
+    ReceiverService service) =>
 {
     service.IsEnabled = state.IsEnabled;
 });

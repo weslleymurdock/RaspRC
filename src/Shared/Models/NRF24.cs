@@ -35,11 +35,15 @@ public record NRF24(string portName, int baudRate, int Channel, int Rate, int CR
     [Range(8, 16)]
     public int CRC { get; set; }
 
-    [Required, MinLength(24), MaxLength(24)]
+    [Required, MinLength(10), MaxLength(10)]
     [Column(Order=7)]
+    [RegularExpression(@"^[0-9A-F]{10}$",
+         ErrorMessage = "Only 5 hexadecimal values are allowed.")]
     public string RXAddress { get; set; }
 
-    [Required, MinLength(24), MaxLength(24)]
+    [Required, MinLength(10), MaxLength(10)]
     [Column(Order=8)]
+    [RegularExpression(@"^[0-9A-F]{10}$",
+         ErrorMessage = "Only 5 hexadecimal values are allowed.")]
     public string TXAddress { get; set; }
 }

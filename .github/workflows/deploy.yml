@@ -80,42 +80,33 @@ jobs:
         sudo apt install apache2 -y
         sudo usermod -a -G www-data $USER
         sudo chown -R -f www-data:www-data /var/www/html
-        sudo mkdir -p /var/www/rx/wwwroot
-        sudo chown -R -f www-data:www-data /var/www/rx
-        sudo chown -R -f www-data:www-data /var/www/rx/wwwroot
+        sudo mkdir -p /var/www/rasprc-tx/
+        sudo chown -R -f www-data:www-data /var/www/rasprc-tx/
         sudo touch /etc/apache2/sites-available/rasp.local.conf
         sudo echo "<VirtualHost *:80>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ServerName www.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ServerAlias *.rasp.local" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    DocumentRoot /var/www/rx/wwwroot" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    AddType application/wasm .wasm" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    AddType application/octet-stream .dll" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    <Directory /var/www/rx>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        Options -Indexes" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AllowOverride None" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    </Directory>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    <IfModule mod_deflate.c>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE text/css" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE application/javascript" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE text/html" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE application/octet-stream" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        AddOutputFilterByType DEFLATE application/wasm" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        <IfModule mod_setenvif.c>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "            BrowserMatch ^Mozilla/4 gzip-only-text/html" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "            BrowserMatch ^Mozilla/4.0[678] no-gzip" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "            BrowserMatch bMSIE !no-gzip !gzip-only-text/html" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "        </IfModule>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    </IfModule>" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    ErrorLog ${APACHE_LOG_DIR}/rasp.local-error.log" >> /etc/apache2/sites-available/rasp.local.conf
-        sudo echo "    CustomLog ${APACHE_LOG_DIR}/rasp.local-access.log combined" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    ProxyPreserveHost On" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    ProxyPass / http://127.0.0.1:5000/" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    ProxyPassReverse / http://127.0.0.1:5000/" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    ErrorLog ${APACHE_LOG_DIR}/tx-error.log" >> /etc/apache2/sites-available/rasp.local.conf
+        sudo echo "    CustomLog ${APACHE_LOG_DIR}/rx-access.log common" >> /etc/apache2/sites-available/rasp.local.conf
         sudo echo "</VirtualHost>" >> /etc/apache2/sites-available/rasp.local.conf
 
-    - name: Deploy
+    - name: Build & Publish
       run: |
-        cd ./src/Rx
+        cd ./src/Tx
         dotnet restore
         dotnet build -c Release --no-restore
-        dotnet publish -c Release -r linux-arm64 /p:PublishDir=/var/www/rx
-        sudo a2dissite 000-default.conf
+        dotnet publish -c Release -r linux-arm64 /p:PublishDir=/var/www/rasprc-tx
+        cd /etc/apache2/sites-enabled
+        sudo a2dissite *
         sudo a2ensite rasp.local.conf
         sudo systemctl reload apache2        
+        chmod 755 -R /var/www/
+
+    - name: Service
+      run: |
+        cd ./src/Tx/Deploy
+        sudo cp -v rasp.local.service /etc/systemd/system/
+        sudo systemctl daemon-reload
+        sudo systemctl enable rasp.local
+        systemctl start rasp.local
