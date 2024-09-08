@@ -88,11 +88,11 @@ app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<N
 .WithOpenApi();
 
 // PutConfigurationAsync the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+//}
 
 app.UseHttpsRedirection();
 

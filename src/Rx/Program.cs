@@ -1,5 +1,7 @@
+using FluentValidation;
 using Rx.Services;
 using Shared.Models;
+using Shared.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -31,12 +33,48 @@ app.MapMethods("/receiver", ["PATCH"], (
     service.IsEnabled = state.IsEnabled;
 });
 
-// PutConfigurationAsync the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.MapMethods("/nrf", ["PATCH"], async (
+            NRF24 nrf,
+            NRF24Service<ReceiverService> service,
+            IValidator<NRF24> validator) =>
 {
-    app.UseSwagger();
+    var results = await validator.ValidateAsync(nrf);
+    if (!results.IsValid)
+    {
+        return Results.ValidationProblem(results.ToDictionary());
+    }
+    return Results.NoContent();
+})
+.WithName("PatchNRF")
+.WithOpenApi();
+
+app.MapGet("/nrf", async (NRF24Service<ReceiverService> service, IValidator<NRF24> validator) =>
+{
+    _ = service.StopAsync();
+
+    var config = await service.GetConfigurationAsync();
+
+    var results = await validator.ValidateAsync(config);
+
+    _ = service.StartAsync();
+
+    if (results.IsValid)
+    {
+        return Results.Ok(config);
+    }
+
+    return Results.ValidationProblem(results.ToDictionary());
+})
+.WithName("GetNRF")
+.WithOpenApi();
+
+
+// PutConfigurationAsync the HTTP request pipeline.
+//if (app.Environment.IsDevelopment())
+//{
+app.UseSwagger();
     app.UseSwaggerUI();
-}
+//}
 
 app.UseHttpsRedirection();
 
