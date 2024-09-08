@@ -3,8 +3,7 @@ using Shared.Models;
 using Shared.Services;
 using Shared.Validators;
 using System.IO.Ports;
-using Tx.Services;
-using Shared.Endpoints.NRF;
+using Tx.Services; 
 
 var builder = WebApplication.CreateBuilder(args);
 
