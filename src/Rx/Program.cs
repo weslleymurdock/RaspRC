@@ -12,6 +12,7 @@ builder.Services.AddSystemd();
 builder.Host.UseSystemd();
 // Register as singleton first so it can be injected through Dependency Injection
 builder.Services.AddSingleton<ReceiverService>();
+builder.Services.AddSingleton<NRF24Service<ReceiverService>>();
 //builder.Services.AddSingleton<ReceiverService>();
 // Add as hosted service using the instance registered as singleton before
 builder.Services.AddHostedService(
@@ -25,6 +26,25 @@ app.MapGet("/receiver", (
 {
     return new ReceiverState(service.IsEnabled);
 });
+app.MapGet("/nrf", async (NRF24Service<ReceiverService> service, IValidator<NRF24> validator) =>
+{
+    _ = service.StopAsync();
+
+    var config = await service.GetConfigurationAsync();
+
+    var results = await validator.ValidateAsync(config);
+
+    _ = service.StartAsync();
+
+    if (results.IsValid)
+    {
+        return Results.Ok(config);
+    }
+
+    return Results.ValidationProblem(results.ToDictionary());
+})
+.WithName("GetNRF")
+.WithOpenApi();
 
 app.MapMethods("/receiver", ["PATCH"], (
     ReceiverState state, 
@@ -48,25 +68,7 @@ app.MapMethods("/nrf", ["PATCH"], async (
 .WithName("PatchNRF")
 .WithOpenApi();
 
-app.MapGet("/nrf", async (NRF24Service<ReceiverService> service, IValidator<NRF24> validator) =>
-{
-    _ = service.StopAsync();
 
-    var config = await service.GetConfigurationAsync();
-
-    var results = await validator.ValidateAsync(config);
-
-    _ = service.StartAsync();
-
-    if (results.IsValid)
-    {
-        return Results.Ok(config);
-    }
-
-    return Results.ValidationProblem(results.ToDictionary());
-})
-.WithName("GetNRF")
-.WithOpenApi();
 
 
 // PutConfigurationAsync the HTTP request pipeline.

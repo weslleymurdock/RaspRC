@@ -52,28 +52,17 @@ app.MapGet("/serialports", () =>
 .WithName("GetSerialPorts")
 .WithOpenApi();
 
-app.MapMethods("/nrf", ["PATCH"], async (
-            NRF24 nrf,
-            NRF24Service<TransmitterService> service,
-            IValidator<NRF24> validator) =>
+app.MapGet("/nrf", async () =>
 {
-    var results = await validator.ValidateAsync(nrf);
-    if (!results.IsValid)
-    {
-        return Results.ValidationProblem(results.ToDictionary());
-    }
-    return Results.NoContent();
-})
-.WithName("PatchNRF")
-.WithOpenApi();
+    var service = app.Services.GetService<NRF24Service<TransmitterService>>();
 
-app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
-{
-    _ = service.StopAsync();
+    var validator = app.Services.GetService<IValidator<NRF24>>();
+
+    _ = service!.StopAsync();
 
     var config = await service.GetConfigurationAsync();
 
-    var results = await validator.ValidateAsync(config);
+    var results = await validator!.ValidateAsync(config);
 
     _ = service.StartAsync();
 
@@ -86,6 +75,23 @@ app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<N
 })
 .WithName("GetNRF")
 .WithOpenApi();
+app.MapMethods("/nrf", ["PATCH"], async (NRF24 nrf) =>
+{
+    var service = app.Services.GetService<NRF24Service<TransmitterService>>();
+    
+    var validator = app.Services.GetService<IValidator<NRF24>>();
+    
+    var results = await validator!.ValidateAsync(nrf);
+    
+    if (!results.IsValid)
+    {
+        return Results.ValidationProblem(results.ToDictionary());
+    }
+    return Results.NoContent();
+})
+.WithName("PatchNRF")
+.WithOpenApi();
+
 
 // PutConfigurationAsync the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
