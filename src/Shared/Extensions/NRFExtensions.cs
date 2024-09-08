@@ -1,29 +1,40 @@
+using System.Text;
+using System.Text.RegularExpressions;
+
 namespace Shared.Extensions;
 
 public static class NRFExtensions
 {
-    public static string ToAddressString(this byte[] bytes)
+    public static string[] ConfigurationResponse(this string value) => Encoding.ASCII.GetString(
+            Encoding.Convert(
+                Encoding.UTF8,
+                Encoding.GetEncoding(
+                    Encoding.ASCII.EncodingName,
+                    new EncoderReplacementFallback(string.Empty),
+                    new DecoderExceptionFallback()),
+                Encoding.UTF8.GetBytes(value)))
+            .Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+
+    public static string ToAddressString(this string value)
     {
-        var address = new System.Numerics.BigInteger(bytes.Reverse().ToArray()).ToString("x2");
-        string pattern = @"^([0][x]([A-Fa-f0-9]){2})+([,][0][x]([A-Fa-f0-9]){2}){4}$";
-        var @return = string.Empty;
-        for (int i = 0; i < address.Length ; i += 2) 
+        if (!Regex.IsMatch(value, @"^[A-Fa-f0-9]{10}$"))
         {
-            if (i == 0)
+            throw new InvalidDataException("The address must be an hex string with exactly 10 hex digits");
+        }
+        StringBuilder address = new("0x");
+        for (int i = 0; i < value.Length / 2; i++)
+        {
+            address.Append(value.AsSpan(i * 2, 2));
+            if ((address.Length/2) - 1 != i)
             {
-                @return += $"0x{address.Substring(i, i + 2)}";
-                continue;
-            }
-            if (i + 2 == address.Length)
-            {
-                @return += $",0x{address.Substring(i)}";
-            }
-            else
-            {
-                @return += $",0x{address.Substring(i, i + 2)}";
+                address.Append(",0x");
             }
         }
+        return address.ToString();
+    }
 
-        return @return;
+    public static decimal Map(this decimal value, decimal initialMin, decimal initialMax, decimal finalMin = 1000, decimal finalMax = 2000)
+    {
+        return (value - initialMin) / (initialMax - initialMin) * (finalMax - finalMin) + finalMin;
     }
 }

@@ -1,6 +1,10 @@
+using FluentValidation; 
 using Shared.Models;
-using System.IO.Ports;
+using Shared.Services;
+using Shared.Validators; 
+using System.IO.Ports; 
 using Tx.Services;
+using Shared.Endpoints.NRF;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,20 +14,25 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSystemd();
 builder.Host.UseSystemd();
-// Register as singleton first so it can be injected through Dependency Injection
+// Register as singleton first so it can be injected through Dependency Injection 
 builder.Services.AddSingleton<TransmitterService>();
-//builder.Services.AddSingleton<ReceiverService>();
+builder.Services.AddSingleton<INRF24Service, NRF24Service<TransmitterService>>();
+builder.Services.AddScoped<IValidator<Channel>, ChannelValuesValidator>();
+
 // Add as hosted service using the instance registered as singleton before
 builder.Services.AddHostedService(
     provider => provider.GetRequiredService<TransmitterService>());
 
-WebApplication app = builder.Build();
 
-app.MapGet("/", () => "RaspRC Transmitter");
+WebApplication app = builder.Build();
+ 
+
+
+app.MapGet("/", () => new { Device = "RaspRC Transmitter" });
 app.MapGet("/transmitter", (
     TransmitterService service) =>
 {
-    return new TransmitterState(service.IsEnabled);
+    return Results.Ok(new { Enabled = new TransmitterState(service.IsEnabled) });
 })
 .WithName("GetTransmitter")
 .WithOpenApi();
@@ -34,19 +43,19 @@ app.MapMethods("/transmitter", ["PATCH"], (
 {
     service.IsEnabled = state.IsEnabled;
 })
-.WithName("PatchReceiver")
+.WithName("PatchTransmitter")
 .WithOpenApi();
 
 app.MapGet("/serialports", () =>
 {
-    var ports =  SerialPort.GetPortNames()
-        .ToArray();
-    return ports;
+    return Results.Ok(new { Ports = SerialPort.GetPortNames() });
 })
 .WithName("GetSerialPorts")
 .WithOpenApi();
 
-// Configure the HTTP request pipeline.
+app.MapNrf<TransmitterService>();
+
+// PutConfigurationAsync the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -56,4 +65,4 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.Run();
- 
+

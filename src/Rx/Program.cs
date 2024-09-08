@@ -31,7 +31,7 @@ app.MapMethods("/receiver", ["PATCH"], (
     service.IsEnabled = state.IsEnabled;
 });
 
-// Configure the HTTP request pipeline.
+// PutConfigurationAsync the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

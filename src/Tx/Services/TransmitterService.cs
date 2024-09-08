@@ -1,25 +1,69 @@
-﻿using System.IO.Ports;
+﻿using FluentValidation;
+using Shared.Models;
+using Shared.Services;
+using System.IO.Ports;
 
 namespace Tx.Services;
 public class TransmitterService : BackgroundService
 {
     private readonly TimeSpan _period = TimeSpan.FromMilliseconds(50);
     private readonly ILogger<TransmitterService> _logger;
+    private readonly IValidator<Channel> _validator;
+    private readonly IConfiguration _configuration;
+    private readonly INRF24Service _nrf;
     private readonly IServiceScopeFactory _factory;
+    private InputService input = default!;
     private int _executionCount = 0;
 
     public bool IsEnabled { get; set; } = true;
     public string PortName { get; set; } = "/dev/ttyUSB0";
-    public string Data { get; set; } = string.Empty;
+    public Channel Channels { get; set; } = default!;
 
     public TransmitterService(
         ILogger<TransmitterService> logger,
+        INRF24Service iNRF24,
+        IValidator<Channel> validator,
+        IConfiguration configuration,
         IServiceScopeFactory factory)
     {
-        _logger = logger;
-        _factory = factory;
-    }
+        _configuration = configuration;
 
+        _logger = logger;
+
+        _validator = validator;
+
+        _nrf = iNRF24;
+
+        _factory = factory;
+
+        _nrf.SerialErrorReceived += (sender, e) =>
+        {
+            _logger.LogError($"Error received: {e}");
+            Channels.Value = default!;
+        };
+
+        _nrf.SerialDataReceived += (sender, e) =>
+        {
+            SerialPort sp = (SerialPort)sender;
+            Channels.HexValue = sp.ReadExisting();
+            for (int i = 0; i < Channels.HexValue.Length / 3; i++)
+            {
+                var value = Channels.HexValue.Substring(i * 3, 3);
+                _logger.LogInformation($"{value} : {int.Parse(value, System.Globalization.NumberStyles.HexNumber)}");
+            }
+            sp.DiscardInBuffer();
+        };
+    }
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await this._nrf.StartAsync();
+        await base.StartAsync(cancellationToken);
+    }
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await this._nrf.StopAsync();
+        await base.StopAsync(cancellationToken);
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -27,30 +71,23 @@ public class TransmitterService : BackgroundService
         // To do this, we can use a Periodic Timer, which, unlike other timers, does not block resources.
         // But instead, WaitForNextTickAsync provides a mechanism that blocks a task and can thus be used in a While loop.
         using PeriodicTimer timer = new PeriodicTimer(_period);
-        using SerialPort serial = new SerialPort(PortName);
-        serial.BaudRate = 9600;
-        serial.Parity = Parity.None;
-        serial.DataBits = 8;
-        serial.StopBits = StopBits.One;
-        serial.DataReceived += (sender, e) =>
-        {
-            SerialPort sp = (SerialPort)sender;
-            Data = sp.ReadExisting();
-            for (int i = 0; i < Data.Length; i++)
-            {
-                _logger.LogInformation($"{(byte)Data[i]} : {(char)Data[i]}");
-            }
-            sp.DiscardInBuffer();
-        };
-
         try
         {
-            serial.Open();
+            // We cannot use the default dependency injection behavior, because ExecuteAsync is
+            // a long-running method while the background service is running.
+            // To prevent open resources and instances, only create the services and other references on a run
+            // Create scope, so we get request services
+            await using AsyncServiceScope asyncScope = _factory.CreateAsyncScope();
+            // Get service from scope
+            input = asyncScope.ServiceProvider.GetRequiredService<InputService>();
         }
         catch (Exception e)
         {
-            _logger.LogError($"Error to open serial port: {e}");
+            _logger.LogError($"{e}");
+            throw;
         }
+
+
         // When ASP.NET Core is intentionally shut down, the background service receives information
         // via the stopping token that it has been canceled.
         // We check the cancellation to avoid blocking the application shutdown.
@@ -62,39 +99,20 @@ public class TransmitterService : BackgroundService
                 continue;
             }
 
-            if (!serial.IsOpen)
-            {
-                try
-                {
-                    serial.Open();
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError($"Error to open SerialPort {e}");
-                    continue;
-                }
-            }
-
             try
             {
-                // We cannot use the default dependency injection behavior, because ExecuteAsync is
-                // a long-running method while the background service is running.
-                // To prevent open resources and instances, only create the services and other references on a run
-                // Create scope, so we get request services
-                await using AsyncServiceScope asyncScope = _factory.CreateAsyncScope();
-
-                // Get service from scope
-                //TransmitterService receiverService = asyncScope.ServiceProvider.GetRequiredService<TransmitterService>();
-
-                if (string.IsNullOrEmpty(Data) || string.IsNullOrWhiteSpace(Data))
+                InType @in = InType.Transmitter ; //default
+                _configuration.GetSection("Transmitter:InputType").Bind(@in);
+                Channels = input.ReadInputs(@in);
+                var results = await _validator.ValidateAsync(Channels);
+                if (results.IsValid)
                 {
-                    serial.WriteLine(Data);
+                    await _nrf.WriteAsync(Channels.HexValue);
                 }
-                 
 
-                //await receiverService.(Data);
+                //await receiverService.(Channels);
 
-                Data = string.Empty;
+                
                 // Sample count increment
                 _executionCount++;
                 _logger.LogInformation($"Executed TransmitterService - Count: {_executionCount}");
