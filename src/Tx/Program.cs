@@ -1,8 +1,8 @@
-using FluentValidation; 
+using FluentValidation;
 using Shared.Models;
 using Shared.Services;
-using Shared.Validators; 
-using System.IO.Ports; 
+using Shared.Validators;
+using System.IO.Ports;
 using Tx.Services;
 using Shared.Endpoints.NRF;
 
@@ -25,7 +25,7 @@ builder.Services.AddHostedService(
 
 
 WebApplication app = builder.Build();
- 
+
 
 
 app.MapGet("/", () => new { Device = "RaspRC Transmitter" });
@@ -53,7 +53,40 @@ app.MapGet("/serialports", () =>
 .WithName("GetSerialPorts")
 .WithOpenApi();
 
-app.MapNrf<TransmitterService>();
+app.MapMethods("/nrf", ["PATCH"], async (
+            NRF24 nrf,
+            NRF24Service<TransmitterService> service,
+            IValidator<NRF24> validator) =>
+{
+    var results = await validator.ValidateAsync(nrf);
+    if (!results.IsValid)
+    {
+        return Results.ValidationProblem(results.ToDictionary());
+    }
+    return Results.NoContent();
+})
+.WithName("PatchNRF")
+.WithOpenApi();
+
+app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
+{
+    _ = service.StopAsync();
+
+    var config = await service.GetConfigurationAsync();
+
+    var results = await validator.ValidateAsync(config);
+
+    _ = service.StartAsync();
+
+    if (results.IsValid)
+    {
+        return Results.Ok(config);
+    }
+
+    return Results.ValidationProblem(results.ToDictionary());
+})
+.WithName("GetNRF")
+.WithOpenApi();
 
 // PutConfigurationAsync the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
