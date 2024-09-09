@@ -1,4 +1,4 @@
-using FluentValidation;
+using FluentValidation; 
 using Shared.Models;
 using Shared.Services;
 using Shared.Validators;
@@ -13,10 +13,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSystemd();
 builder.Host.UseSystemd();
+builder.Services.AddValidatorsFromAssemblyContaining<NRFValidator>();
 // Register as singleton first so it can be injected through Dependency Injection 
 builder.Services.AddSingleton<TransmitterService>();
 builder.Services.AddSingleton<INRF24Service, NRF24Service<TransmitterService>>();
-builder.Services.AddScoped<IValidator<Channel>, ChannelValuesValidator>();
+//builder.Services.AddScoped<IValidator<Channel>, ChannelValuesValidator>();
 
 // Add as hosted service using the instance registered as singleton before
 builder.Services.AddHostedService(
@@ -52,19 +53,15 @@ app.MapGet("/serialports", () =>
 .WithName("GetSerialPorts")
 .WithOpenApi();
 
-app.MapGet("/nrf", async () =>
+app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
 {
-    var service = app.Services.GetService<NRF24Service<TransmitterService>>();
-
-    var validator = app.Services.GetService<IValidator<NRF24>>();
-
-    _ = service!.StopAsync();
+    await service!.StopAsync();
 
     var config = await service.GetConfigurationAsync();
 
     var results = await validator!.ValidateAsync(config);
 
-    _ = service.StartAsync();
+    await service.StartAsync();
 
     if (results.IsValid)
     {
@@ -75,12 +72,8 @@ app.MapGet("/nrf", async () =>
 })
 .WithName("GetNRF")
 .WithOpenApi();
-app.MapMethods("/nrf", ["PATCH"], async (NRF24 nrf) =>
+app.MapMethods("/nrf", ["PATCH"], async (NRF24 nrf, NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
 {
-    var service = app.Services.GetService<NRF24Service<TransmitterService>>();
-    
-    var validator = app.Services.GetService<IValidator<NRF24>>();
-    
     var results = await validator!.ValidateAsync(nrf);
     
     if (!results.IsValid)

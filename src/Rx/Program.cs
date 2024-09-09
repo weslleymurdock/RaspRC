@@ -2,6 +2,7 @@ using FluentValidation;
 using Rx.Services;
 using Shared.Models;
 using Shared.Services;
+using Shared.Validators;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -10,6 +11,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSystemd();
 builder.Host.UseSystemd();
+builder.Services.AddValidatorsFromAssemblyContaining<NRFValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<ChannelValuesValidator>();
 // Register as singleton first so it can be injected through Dependency Injection
 builder.Services.AddSingleton<ReceiverService>();
 builder.Services.AddSingleton<NRF24Service<ReceiverService>>();
