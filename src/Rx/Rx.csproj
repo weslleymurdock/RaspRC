@@ -32,4 +32,8 @@
     <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="scp -rp D:\github\RaspRC\src\Rx\bin\Debug\net8.0\* rx@rasp.local:~/debug" />
+  </Target>
+
 </Project>
