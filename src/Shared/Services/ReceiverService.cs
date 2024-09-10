@@ -28,7 +28,7 @@ public class ReceiverService : BackgroundService, IBGTxRx
         nrf = options.Value;
         using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
 
-        _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<TransmitterService>>()!;
+        _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<ReceiverService>>()!;
 
     }
 
