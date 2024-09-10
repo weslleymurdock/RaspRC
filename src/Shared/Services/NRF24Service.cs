@@ -1,14 +1,11 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Shared.Models;
 using Shared.Extensions;
 using System.IO.Ports;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection; 
 using FluentValidation;
 using Microsoft.Extensions.Options;
-using System.Text;
-using System.Runtime.CompilerServices;
+using System.Text; 
 
 namespace Shared.Services;
 
@@ -31,6 +28,7 @@ public class NRF24Service<T> : INRF24Service
 
     private static SerialPort serial = new();
 
+    public bool NRFPortIsOpen => serial.IsOpen;
     public NRF24 NRF24 { get; set; } = default!;
 
     public string[] Ports => SerialPort.GetPortNames();
@@ -62,11 +60,11 @@ public class NRF24Service<T> : INRF24Service
                 throw new InvalidDataException("Invalid radio configuration");
             }
 
-            if (!Ports.Contains(_nrf.PortName))
+            if (!Ports.Contains(_nrf.Port))
             {
                 if (Ports.Length > 1)
                 {
-                    _nrf.PortName = Ports[1];
+                    _nrf.Port = Ports[1];
                 }
             }
 
@@ -74,7 +72,7 @@ public class NRF24Service<T> : INRF24Service
             {
                 return;
             }
-            serial.PortName = _nrf.PortName;
+            serial.PortName = _nrf.Port;
             serial.BaudRate = _bauds[_nrf.BaudRate - 1];
             serial.DataBits = 8;
             serial.Parity = Parity.None;
@@ -82,19 +80,14 @@ public class NRF24Service<T> : INRF24Service
             serial.Encoding = Encoding.UTF8;
             serial.DataReceived += SerialDataReceived;
             serial.ErrorReceived += SerialErrorReceived;
-            _logger.LogInformation($"opening serial port {_nrf.PortName}");
+            _logger.LogInformation($"opening serial port {_nrf.Port}");
             serial.Open();
 
         }
         catch (Exception e)
         {
             _logger.LogError($"Error while activating services {e}");
-        }
-
-        //if (serial.IsOpen)
-        //{
-        //    var response = this.PutConfigurationAsync(_nrf);
-        //}
+        } 
     }
 
     public async Task<NRF24> GetConfigurationAsync()
@@ -130,7 +123,7 @@ public class NRF24Service<T> : INRF24Service
             Channel = i - 2400,
             CRC = j,
             Rate = int.Parse(response[7].Contains("Kbps") ? response[7].Replace("Kbps", "") : response[7].Contains("Mbps") ? response[7].Replace("Mbps", "") : response[7]),
-            PortName = serial.PortName
+            Port = serial.PortName
         };
 
         bg.IsEnabled = true;
@@ -154,12 +147,13 @@ public class NRF24Service<T> : INRF24Service
         foreach (string cmd in commands)
         {
             await serial.WriteLineAsync(cmd);
-            Thread.Sleep(100); 
-            var read = await serial.ReadExistingAsync();
-            var ok = read?.ConfigurationResponse()!;
-            response.AddRange(ok);
-            serial.DiscardInBuffer();
+            Thread.Sleep(100);
         }
+        var read = await serial.ReadExistingAsync();
+        var ok = read?.ConfigurationResponse()!;
+        response.AddRange(ok);
+
+        serial.DiscardInBuffer();
        
         bg!.IsEnabled = true;
 
@@ -190,6 +184,14 @@ public class NRF24Service<T> : INRF24Service
         {
             _logger.LogError($"Error at reading serial port: \n {e}");
             return await Task.FromException<string>(e);
+        }
+    }
+
+    public void DiscartInputBuffer()
+    {
+        if (this.NRFPortIsOpen)
+        {
+            serial.DiscardInBuffer();
         }
     }
 }

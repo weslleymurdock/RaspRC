@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Shared.Models; 
 using Shared.Validators;
 using System.IO.Ports;
@@ -15,15 +16,18 @@ public class TransmitterService : BackgroundService, IBGTxRx
     private readonly IServiceScopeFactory _factory;
     private IValidator<Channel> validator = default!; 
     private int _executionCount = 0;
-
+    private readonly NRF24 nrf;
     public bool IsEnabled { get; set; } = true;
     public string PortName { get; set; } = "/dev/ttyUSB0";
     public Channel Channels { get; set; } = default!;
 
     public TransmitterService(
         ILogger<TransmitterService> logger,  
+        IOptions<NRF24> options,
         IServiceScopeFactory factory)
-    { 
+    {
+        nrf = options.Value;
+
         _logger = logger;
           
         using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
@@ -49,6 +53,7 @@ public class TransmitterService : BackgroundService, IBGTxRx
             }
             sp.DiscardInBuffer();
         };
+
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -73,7 +78,10 @@ public class TransmitterService : BackgroundService, IBGTxRx
             throw;
         }
 
-
+        if (_nrf.NRFPortIsOpen)
+        {
+            await _nrf.PutConfigurationAsync(nrf);
+        }
         // When ASP.NET Core is intentionally shut down, the background service receives information
         // via the stopping token that it has been canceled.
         // We check the cancellation to avoid blocking the application shutdown.

@@ -2,7 +2,7 @@
 
 public class NRF24 
 {  
-    public string? PortName { get; set; } 
+    public string? Port { get; set; } 
      
     public int BaudRate { get; set; }  
      

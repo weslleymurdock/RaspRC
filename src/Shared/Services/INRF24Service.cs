@@ -6,9 +6,10 @@ namespace Shared.Services;
 public interface INRF24Service
 {
     NRF24 NRF24 { get; set; }
-
+    bool NRFPortIsOpen { get; }
     string[] Ports { get; }
 
+    void DiscartInputBuffer();
     Task<NRF24> GetConfigurationAsync();
 
     Task<ICollection<string>> PutConfigurationAsync(NRF24 nrf);
