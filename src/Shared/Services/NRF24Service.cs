@@ -2,23 +2,22 @@
 using Microsoft.Extensions.Logging;
 using Shared.Models;
 using Shared.Extensions;
-using System.Buffers.Binary;
 using System.IO.Ports;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using FluentValidation;
+using Microsoft.Extensions.Options;
 using System.Text;
-using Microsoft.AspNetCore.Builder;
+using System.Runtime.CompilerServices;
 
 namespace Shared.Services;
 
-public class NRF24Service<T> : IDisposable, INRF24Service
-    where T : BackgroundService
+public class NRF24Service<T> : INRF24Service
+    where T : IBGTxRx
 {
-    private readonly IValidator<Channel> _channelValidator;
-    
-    private readonly IValidator<NRF24> _nrfValidator;
+    private readonly NRF24 _nrf;
+
+    private readonly IServiceScopeFactory _factory;
 
     private readonly List<int> _bauds = [4800, 9600, 14400, 19200, 38400, 115200];
 
@@ -30,8 +29,6 @@ public class NRF24Service<T> : IDisposable, INRF24Service
 
     private readonly ILogger<NRF24Service<T>> _logger;
 
-    private readonly IConfiguration _configuration;
-
     private static SerialPort serial = new();
 
     public NRF24 NRF24 { get; set; } = default!;
@@ -42,132 +39,130 @@ public class NRF24Service<T> : IDisposable, INRF24Service
 
     public event SerialErrorReceivedEventHandler SerialErrorReceived = default!;
 
-    public NRF24Service(IServiceProvider serviceProvider, IConfiguration configuration, ILogger<NRF24Service<T>> logger, IValidator<Channel> channelValidator, IValidator<NRF24> nrfValidator, string section)
+    public NRF24Service(IServiceProvider serviceProvider, IOptions<NRF24> nrf, ILogger<NRF24Service<T>> logger, IServiceScopeFactory factory)
     {
-        _channelValidator = channelValidator;
+        _factory = factory;
 
-        _nrfValidator = nrfValidator;
-
-        _configuration = configuration;
+        _nrf = nrf.Value;
 
         _logger = logger;
 
         _serviceProvider = serviceProvider;
 
-        _configuration.GetSection($"{section}:NRF24").Bind(NRF24);
-
-        if (NRF24 is null)
-        {
-            throw new ArgumentNullException(nameof(NRF24));
-        }
-
-        var results = _nrfValidator.ValidateAsync(NRF24).GetAwaiter().GetResult();
-
-        if (!results.IsValid)
-        {
-            _logger.LogCritical("Invalid radio Configuration");
-        
-            throw new InvalidDataException("Invalid radio configuration");
-        }
-
-        if (!Ports.Contains(NRF24.PortName))
-        {
-            if (Ports.Length > 1)
-            {
-                NRF24.PortName = Ports[1];
-            }
-        }
-
-        serial.PortName = NRF24.PortName;
-        serial.BaudRate = _bauds[NRF24.BaudRate - 1];
-        serial.DataBits = 8;
-        serial.Parity = Parity.None;
-        serial.StopBits = StopBits.One;
-        serial.DataReceived += SerialDataReceived;
-        serial.ErrorReceived += SerialErrorReceived;
-
         try
         {
-            _logger.LogInformation($"opening serial port {NRF24.PortName}");
+            using AsyncServiceScope asyncScope = _factory.CreateAsyncScope();
+            var _nrfValidator = asyncScope.ServiceProvider.GetRequiredService<IValidator<NRF24>>();
+            var results = _nrfValidator.ValidateAsync(_nrf).GetAwaiter().GetResult();
+
+            if (!results.IsValid)
+            {
+                _logger.LogCritical("Invalid radio Configuration");
+
+                throw new InvalidDataException("Invalid radio configuration");
+            }
+
+            if (!Ports.Contains(_nrf.PortName))
+            {
+                if (Ports.Length > 1)
+                {
+                    _nrf.PortName = Ports[1];
+                }
+            }
+
+            if (serial.IsOpen)
+            {
+                return;
+            }
+            serial.PortName = _nrf.PortName;
+            serial.BaudRate = _bauds[_nrf.BaudRate - 1];
+            serial.DataBits = 8;
+            serial.Parity = Parity.None;
+            serial.StopBits = StopBits.One;
+            serial.Encoding = Encoding.UTF8;
+            serial.DataReceived += SerialDataReceived;
+            serial.ErrorReceived += SerialErrorReceived;
+            _logger.LogInformation($"opening serial port {_nrf.PortName}");
             serial.Open();
+
         }
         catch (Exception e)
         {
-            _logger.LogError($"Error at opening serial port: \n {e}");
-            throw;
+            _logger.LogError($"Error while activating services {e}");
         }
 
-        if (serial.IsOpen)
-        {
-            _ = this.PutConfigurationAsync(NRF24);
-        }
+        //if (serial.IsOpen)
+        //{
+        //    var response = this.PutConfigurationAsync(_nrf);
+        //}
     }
 
     public async Task<NRF24> GetConfigurationAsync()
     {
-        var worker = _serviceProvider.GetServices<IHostedService>()
-                                    .OfType<T>()
-                                    .FirstOrDefault();
-        
-        await worker!.StopAsync(new CancellationToken(true));
-        
-        serial.WriteLine($"AT?");
-        
-        await Task.Delay(2);
-        
-        var response = serial.ReadExisting().ConfigurationResponse();
-        
-        ArgumentNullException.ThrowIfNull(response,nameof(response));
+        var _sp = _serviceProvider.CreateScope();
+        var bg = _sp.ServiceProvider.GetService<T>();
+
+        bg!.IsEnabled = false;
+        serial.DiscardInBuffer();
+        await serial.WriteLineAsync($"AT?");
+
+        while (serial.BytesToRead <= 215)
+        {
+            continue;
+        } 
+        var response = (await serial.ReadExistingAsync()).ConfigurationResponse();
+
+        serial.DiscardInBuffer();
+
+        ArgumentNullException.ThrowIfNull(response, nameof(response));
 
         ArgumentOutOfRangeException.ThrowIfLessThan(response.Length, 8, nameof(response.Length));
-
-        response[3] = response[3].StartsWith("00") ? response[3].Remove(0, 1) : response[3];
 
         _ = int.TryParse(response[4].Replace(".", "").Replace("GHz", ""), out int i);
 
         _ = int.TryParse(response[5].Replace("CRC", ""), out int j);
          
-        response[7] = response[7].Contains("Kbps") ? response[7].Replace("Kbps", "") : response[7].Contains("Mbps") ? response[7].Replace("Mbps", "") : response[7];
-         
-        NRF24 nrf = new NRF24()
+        NRF24 nrf = new()
         {
             BaudRate = int.Parse(response[1]),
-            TXAddress = response[2].Trim().Replace("0x", "").Replace(",", ""),
-            RXAddress = response[3].Replace("0x", "").Replace(",", ""),
+            TXAddress = response[2].Trim(),
+            RXAddress = response[3].StartsWith("00") ? response[3].Remove(0, 1) : response[3],
             Channel = i - 2400,
             CRC = j,
-            Rate = int.Parse(response[7]),
+            Rate = int.Parse(response[7].Contains("Kbps") ? response[7].Replace("Kbps", "") : response[7].Contains("Mbps") ? response[7].Replace("Mbps", "") : response[7]),
             PortName = serial.PortName
         };
-         
+
+        bg.IsEnabled = true;
+
         return nrf;
     }
 
-    public async Task<ICollection<string[]>> PutConfigurationAsync(NRF24 nrf)
+    public async Task<ICollection<string>> PutConfigurationAsync(NRF24 nrf)
     {
-        var worker = _serviceProvider.GetServices<IHostedService>()
-                                    .OfType<T>()
-                                    .FirstOrDefault();
-        
-        await worker!.StopAsync(new CancellationToken(true));
 
+        var _sp = _serviceProvider.CreateScope();
+        var bg = _sp.ServiceProvider.GetService<T>();
+
+        bg!.IsEnabled = false;
         _logger.LogInformation($"Configuring NRF");
-        
-        List<string> commands = [$"AT+RATE={nrf.Rate}", $"AT+CRC={nrf.CRC}", $"AT+FREQ=2.{nrf.Channel + 400}G", $"AT+TXA={nrf.TXAddress.ToAddressString()}", $"AT+RXA={nrf.RXAddress.ToAddressString()}"];
-        
-        List<string[]> response = [];
-        
-        commands.ForEach(command =>
-        {
-            serial.WriteLine(command);
-            response.Add(serial.ReadExisting().ConfigurationResponse());
-            _logger.LogInformation($"{serial.ReadExisting()}");
-            serial.DiscardInBuffer();
 
-        });
-        
-        await worker!.StartAsync(new CancellationToken(false));
-        
+        List<string> commands = [$"AT+RATE={_rates.IndexOf(nrf.Rate) + 1}", $"AT+CRC={nrf.CRC}", $"AT+FREQ=2.{nrf.Channel + 400}G", $"AT+TXA={nrf.TXAddress}", $"AT+RXA={nrf.RXAddress}"];
+        serial.DiscardInBuffer();
+
+        List<string> response = [];
+        foreach (string cmd in commands)
+        {
+            await serial.WriteLineAsync(cmd);
+            Thread.Sleep(100); 
+            var read = await serial.ReadExistingAsync();
+            var ok = read?.ConfigurationResponse()!;
+            response.AddRange(ok);
+            serial.DiscardInBuffer();
+        }
+       
+        bg!.IsEnabled = true;
+
         return response;
     }
 
@@ -175,7 +170,7 @@ public class NRF24Service<T> : IDisposable, INRF24Service
     {
         try
         {
-            return await Task.Factory.StartNew(serial.ReadExisting);
+            return await serial.ReadExistingAsync();
         }
         catch (Exception e)
         {
@@ -188,7 +183,7 @@ public class NRF24Service<T> : IDisposable, INRF24Service
     {
         try
         {
-            await Task.Factory.StartNew(() => serial.WriteLine(data));
+            await serial.WriteLineAsync(data);
             return "sent";
         }
         catch (Exception e)
@@ -196,25 +191,5 @@ public class NRF24Service<T> : IDisposable, INRF24Service
             _logger.LogError($"Error at reading serial port: \n {e}");
             return await Task.FromException<string>(e);
         }
-    }
-
-    public void Dispose() => serial.Dispose();
-
-    public async Task StartAsync()
-    {
-        if (!serial.IsOpen)
-        {
-            await Task.Factory.StartNew(serial.Open);
-        }
-    }
-
-    public async Task StopAsync()
-    {
-        if (serial.IsOpen)
-        {
-            await Task.Factory.StartNew(serial.Close);
-        }
-
-        await Task.Factory.StartNew(this.Dispose); 
     }
 }

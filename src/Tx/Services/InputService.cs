@@ -12,7 +12,7 @@ public class InputService
 
     public Channel ReadInputs(InType inType)
     {
-        _logger.LogInformation($"Reading inputs from {inType}");
-        return new Channel { Value = [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000] };
+        _logger.LogInformation($"Reading inputs from {inType}"); 
+        return new Channel([1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]);
     }
 }

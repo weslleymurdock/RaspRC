@@ -1,18 +1,19 @@
 ﻿using FluentValidation;
-using Shared.Models;
-using Shared.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Shared.Models; 
+using Shared.Validators;
 using System.IO.Ports;
 
-namespace Tx.Services;
-public class TransmitterService : BackgroundService
+namespace Shared.Services;
+public class TransmitterService : BackgroundService, IBGTxRx
 {
     private readonly TimeSpan _period = TimeSpan.FromMilliseconds(50);
-    private readonly ILogger<TransmitterService> _logger;
-    private readonly IValidator<Channel> _validator;
-    private readonly IConfiguration _configuration;
+    private readonly ILogger<TransmitterService> _logger; 
     private readonly INRF24Service _nrf;
     private readonly IServiceScopeFactory _factory;
-    private InputService input = default!;
+    private IValidator<Channel> validator = default!; 
     private int _executionCount = 0;
 
     public bool IsEnabled { get; set; } = true;
@@ -20,19 +21,14 @@ public class TransmitterService : BackgroundService
     public Channel Channels { get; set; } = default!;
 
     public TransmitterService(
-        ILogger<TransmitterService> logger,
-        INRF24Service iNRF24,
-        IValidator<Channel> validator,
-        IConfiguration configuration,
+        ILogger<TransmitterService> logger,  
         IServiceScopeFactory factory)
-    {
-        _configuration = configuration;
-
+    { 
         _logger = logger;
+          
+        using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
 
-        _validator = validator;
-
-        _nrf = iNRF24;
+        _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<TransmitterService>>()!;
 
         _factory = factory;
 
@@ -54,16 +50,6 @@ public class TransmitterService : BackgroundService
             sp.DiscardInBuffer();
         };
     }
-    public override async Task StartAsync(CancellationToken cancellationToken)
-    {
-        await this._nrf.StartAsync();
-        await base.StartAsync(cancellationToken);
-    }
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        await this._nrf.StopAsync();
-        await base.StopAsync(cancellationToken);
-    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -78,8 +64,8 @@ public class TransmitterService : BackgroundService
             // To prevent open resources and instances, only create the services and other references on a run
             // Create scope, so we get request services
             await using AsyncServiceScope asyncScope = _factory.CreateAsyncScope();
-            // Get service from scope
-            input = asyncScope.ServiceProvider.GetRequiredService<InputService>();
+            // Get service from scope 
+            validator = asyncScope.ServiceProvider.GetRequiredService<ChannelValuesValidator>();
         }
         catch (Exception e)
         {
@@ -100,11 +86,9 @@ public class TransmitterService : BackgroundService
             }
 
             try
-            {
-                InType @in = InType.Transmitter ; //default
-                _configuration.GetSection("Transmitter:InputType").Bind(@in);
-                Channels = input.ReadInputs(@in);
-                var results = await _validator.ValidateAsync(Channels);
+            { 
+                Channels = new Channel([1000,1000,1000,1000,1000,1000,1000,1000]);
+                var results = await validator.ValidateAsync(Channels);
                 if (results.IsValid)
                 {
                     await _nrf.WriteAsync(Channels.HexValue);
@@ -119,8 +103,7 @@ public class TransmitterService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(
-                    $"Failed to execute PeriodicHostedService with exception message {ex.Message}. Good luck next round!");
+                _logger.LogError($"Failed to execute PeriodicHostedService with exception message {ex.Message}. Good luck next round!");
             }
         }
     }

@@ -8,16 +8,26 @@ namespace Shared.Models;
 public class Channel
 {
     public int[] Value { get; set; } = new int[8];
-    public string HexValue { get { return Encode(this); } set { this.HexValue = value; } }
+    public string HexValue { get; set; } = string.Empty;
 
-
-    public string Encode(Channel channel)
+    public Channel()
     {
-        ArgumentNullException.ThrowIfNull(channel, nameof(channel));
 
-        ArgumentOutOfRangeException.ThrowIfNotEqual(channel.Value.Length, 8, nameof(channel.Value.Length));
+    }
 
-        channel.Value.ToList().ForEach(value =>
+    public Channel(int[] values)
+    {
+        Value = values;
+        HexValue = Encode(values);
+    }
+
+    public string Encode(int[] values)
+    {
+        ArgumentNullException.ThrowIfNull(values, nameof(values));
+
+        ArgumentOutOfRangeException.ThrowIfNotEqual(values.Length, 8, nameof(values.Length));
+
+        values.ToList().ForEach(value =>
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(value, 1000, nameof(value));
 
@@ -26,7 +36,7 @@ public class Channel
 
         StringBuilder builder = new();
 
-        channel.Value.ToList().ForEach(async value =>
+        values.ToList().ForEach(async value =>
         {
             try
             {
@@ -43,7 +53,7 @@ public class Channel
         return builder.ToString();
     }
 
-    public Channel Decode(string data)
+    public int[] Decode(string data)
     {
         var pattern = @"^[A-Fa-f0-9]{24}$";
 
@@ -52,7 +62,7 @@ public class Channel
             throw new ArgumentException("Invalid data", nameof(data));
         }
 
-        var channel = new Channel();
+        var values = new int[8];
 
         for (int i = 0; i < data.Length / 3; i++)
         {
@@ -60,11 +70,11 @@ public class Channel
             var success = int.TryParse(hex, out int result);
             if (success)
             {
-                channel.Value[i] = result;
+                values[i] = result;
             }
         }
 
-        return channel;
+        return values;
     }
 
 

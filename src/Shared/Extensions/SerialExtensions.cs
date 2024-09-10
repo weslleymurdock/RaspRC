@@ -19,7 +19,14 @@ public static class SerialExtensions
 
         byte[] buffer = new byte[port.BytesToRead];
 
-        await port.BaseStream.ReadAsync(buffer, cancellationToken);
+        try
+        {
+            await port.BaseStream.ReadAsync(buffer, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return string.Empty;
+        }
 
         return port.Encoding.GetString(buffer);
     }

@@ -16,15 +16,15 @@ public class NRFValidator : AbstractValidator<NRF24>
         RuleFor(nrf => nrf.RXAddress)
             .NotNull()
             .NotEmpty()
-            .Length(10)
-            .Matches(@"^[0-9A-Fa-f]{10}$")
+            .Length(24)
+            .Matches(@"^([0][x][0-9A-Fa-f]{2})([,][0][x][0-9A-Fa-f]{2}){4}$")
             .WithMessage("The RXAddress mustt not be null, not empty, and must have 10 hex digits ");
 
         RuleFor(nrf => nrf.TXAddress)
             .NotNull()
             .NotEmpty()
-            .Length(10)
-            .Matches(@"^[0-9A-Fa-f]{10}$")
+            .Length(24)
+            .Matches(@"^([0][x][0-9A-Fa-f]{2})([,][0][x][0-9A-Fa-f]{2}){4}$")
             .WithMessage("The TXAddress mustt not be null, not empty, and must have 10 hex digits ");
 
         RuleFor(nrf => nrf.CRC)

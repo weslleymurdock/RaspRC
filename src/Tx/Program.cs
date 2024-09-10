@@ -1,28 +1,26 @@
 using FluentValidation; 
+using Tx.Services;
 using Shared.Models;
 using Shared.Services;
 using Shared.Validators;
 using System.IO.Ports;
-using Tx.Services; 
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+var builder = WebApplication.CreateBuilder(args); 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSystemd();
 builder.Host.UseSystemd();
 builder.Services.AddValidatorsFromAssemblyContaining<NRFValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<ChannelValuesValidator>();
+builder.Services.AddScoped<NRF24Service<TransmitterService>>();
 // Register as singleton first so it can be injected through Dependency Injection 
 builder.Services.AddSingleton<TransmitterService>();
-builder.Services.AddSingleton<INRF24Service, NRF24Service<TransmitterService>>();
-//builder.Services.AddScoped<IValidator<Channel>, ChannelValuesValidator>();
-
+builder.Services.AddScoped<InputService>();
 // Add as hosted service using the instance registered as singleton before
 builder.Services.AddHostedService(
     provider => provider.GetRequiredService<TransmitterService>());
 
+builder.Services.Configure<NRF24>(builder.Configuration.GetSection("NRF24"));
 
 WebApplication app = builder.Build();
 
@@ -55,13 +53,9 @@ app.MapGet("/serialports", () =>
 
 app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
 {
-    await service!.StopAsync();
-
     var config = await service.GetConfigurationAsync();
 
     var results = await validator!.ValidateAsync(config);
-
-    await service.StartAsync();
 
     if (results.IsValid)
     {
@@ -72,25 +66,26 @@ app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<N
 })
 .WithName("GetNRF")
 .WithOpenApi();
-app.MapMethods("/nrf", ["PATCH"], async (NRF24 nrf, NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
+app.MapMethods("/nrf", ["PUT"], async (NRF24 nrf, NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
 {
     var results = await validator!.ValidateAsync(nrf);
-    
+
     if (!results.IsValid)
     {
         return Results.ValidationProblem(results.ToDictionary());
     }
-    return Results.NoContent();
+    var ok = await service.PutConfigurationAsync(nrf);
+    return Results.Ok(ok);
 })
-.WithName("PatchNRF")
+.WithName("PutNRF")
 .WithOpenApi();
 
 
 // PutConfigurationAsync the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
 //{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+app.UseSwagger();
+app.UseSwaggerUI();
 //}
 
 app.UseHttpsRedirection();
