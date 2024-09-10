@@ -38,7 +38,7 @@ app.MapMethods("/receiver", ["PATCH"], (
     service.IsEnabled = state.IsEnabled;
 });
 
-app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
+app.MapGet("/nrf", async (NRF24Service<ReceiverService> service, IValidator<NRF24> validator) =>
 {
     var config = await service.GetConfigurationAsync();
 
@@ -53,7 +53,7 @@ app.MapGet("/nrf", async (NRF24Service<TransmitterService> service, IValidator<N
 })
 .WithName("GetNRF")
 .WithOpenApi();
-app.MapMethods("/nrf", ["PUT"], async (NRF24 nrf, NRF24Service<TransmitterService> service, IValidator<NRF24> validator) =>
+app.MapMethods("/nrf", ["PUT"], async (NRF24 nrf, NRF24Service<ReceiverService> service, IValidator<NRF24> validator) =>
 {
     var results = await validator!.ValidateAsync(nrf);
 
