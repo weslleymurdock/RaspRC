@@ -99,7 +99,7 @@ public class NRF24Service<T> : INRF24Service
         serial.DiscardInBuffer();
         await serial.WriteLineAsync($"AT?");
 
-        while (serial.BytesToRead <= 215)
+        while (serial.BytesToRead <= 213)
         {
             continue;
         } 
