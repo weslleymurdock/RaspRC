@@ -13,7 +13,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<NRFValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<ChannelValuesValidator>();
 // Register as singleton first so it can be injected through Dependency Injection
 builder.Services.AddSingleton<ReceiverService>();
-builder.Services.AddSingleton<NRF24Service<ReceiverService>>();
+builder.Services.AddScoped<NRF24Service<ReceiverService>>();
 //builder.Services.AddSingleton<ReceiverService>();
 // Add as hosted service using the instance registered as singleton before
 builder.Services.AddHostedService(
