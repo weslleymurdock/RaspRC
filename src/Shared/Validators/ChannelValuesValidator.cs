@@ -22,13 +22,9 @@ public class ChannelValuesValidator : AbstractValidator<Channel>
         RuleFor(c => c.HexValue)
             .NotNull()
             .WithMessage("The Channels string must have values");
-
+         
         RuleFor(c => c.HexValue)
-            .Must(x => x.Length == 24)
-            .WithMessage("The Channels string must have 24 hex digits");
-        
-        RuleFor(c => c.HexValue)
-            .Must(x => int.TryParse(x, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out int i))
-            .WithMessage("The Channels string has to be an hex string");
+            .Matches(@"^[0-9A-Fa-f]{24}$")
+            .WithMessage("The Channels string has to be an hex string with 24 digits");
     }
 }

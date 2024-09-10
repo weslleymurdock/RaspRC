@@ -2,7 +2,8 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options; 
-using Shared.Models; 
+using Shared.Models;
+using System.IO.Ports;
 namespace Shared.Services;
 
 
@@ -10,26 +11,46 @@ public class ReceiverService : BackgroundService, IBGTxRx
 {
     private readonly TimeSpan _period = TimeSpan.FromMilliseconds(50);
     private readonly INRF24Service _nrf;
-    private readonly ILogger<ReceiverService> _logger;
-    private readonly IServiceScopeFactory _factory;
-    private int _executionCount = 0;
-    private readonly NRF24 nrf;
+    private readonly ILogger<ReceiverService> _logger; 
+    private int _executionCount = 0; 
     public bool IsEnabled { get; set; } = true;
     public string PortName { get; set; } = "/dev/ttyUSB0";
     public string Data { get; set; } = string.Empty;
+    public Channel Channels { get; set; } = default!;
 
     public ReceiverService(
-        ILogger<ReceiverService> logger,
-                IOptions<NRF24> options,
+        ILogger<ReceiverService> logger, 
         IServiceScopeFactory factory)
     {
-        _logger = logger;
-        _factory = factory;
-        nrf = options.Value;
+        _logger = logger;  
         using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
 
         _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<ReceiverService>>()!;
+        _nrf.SerialErrorReceived += (sender, e) =>
+        {
+            _logger.LogError($"Error received: {e}");
+            Channels.Value = default!;
+        };
 
+        _nrf.SerialDataReceived += (sender, e) =>
+        {
+            try
+            {
+                SerialPort sp = (SerialPort)sender;
+                Channels.HexValue = sp.ReadExisting();
+                for (int i = 0; i < Channels.HexValue.Length / 3; i++)
+                {
+                    var value = Channels.HexValue.Substring(i * 3, 3);
+                    _logger.LogInformation($"{value} : {int.Parse(value, System.Globalization.NumberStyles.HexNumber)}");
+                }
+                sp.DiscardInBuffer();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"error while receiving data> {ex}");
+            }
+        };
+        _logger.LogInformation("started receiver service");
     }
 
     /// <summary>
@@ -48,7 +69,7 @@ public class ReceiverService : BackgroundService, IBGTxRx
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     { 
         using PeriodicTimer timer = new(_period);
-         
+        _nrf.DiscartInputBuffer(); //remove data on first run to sync 
         while (!stoppingToken.IsCancellationRequested &&
             await timer.WaitForNextTickAsync(stoppingToken))
         {
@@ -60,11 +81,15 @@ public class ReceiverService : BackgroundService, IBGTxRx
             { 
                  
                 Data = await _nrf.ReadAsync();
-                _logger.LogInformation($"""Data: {Data}""");
+                _logger.LogInformation($"Data: {Data} Length: {Data.Length}");
                 
                 // Sample count increment
                 _executionCount++;
                 _logger.LogInformation($"Executed ReceiverService - Count: {_executionCount}");
+            }
+            catch (OperationCanceledException e)
+            {
+                _logger.LogError($"e carai {e}");
             }
             catch (Exception ex)
             {

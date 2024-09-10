@@ -36,6 +36,7 @@ public class NRF24Service<T> : INRF24Service
     public event SerialDataReceivedEventHandler SerialDataReceived = default!;
 
     public event SerialErrorReceivedEventHandler SerialErrorReceived = default!;
+    public int BytesToRead => serial.BytesToRead;
 
     public NRF24Service(IServiceProvider serviceProvider, IOptions<NRF24> nrf, ILogger<NRF24Service<T>> logger, IServiceScopeFactory factory)
     {
@@ -147,7 +148,7 @@ public class NRF24Service<T> : INRF24Service
         foreach (string cmd in commands)
         {
             await serial.WriteLineAsync(cmd);
-            Thread.Sleep(100);
+            Thread.Sleep(150);
         }
         var read = await serial.ReadExistingAsync();
         var ok = read?.ConfigurationResponse()!;

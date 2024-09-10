@@ -12,29 +12,25 @@ public class TransmitterService : BackgroundService, IBGTxRx
 {
     private readonly TimeSpan _period = TimeSpan.FromMilliseconds(50);
     private readonly ILogger<TransmitterService> _logger; 
-    private readonly INRF24Service _nrf;
-    private readonly IServiceScopeFactory _factory;
+    private readonly INRF24Service _nrf; 
     private IValidator<Channel> validator = default!; 
-    private int _executionCount = 0;
-    private readonly NRF24 nrf;
+    private int _executionCount = 0; 
     public bool IsEnabled { get; set; } = true;
     public string PortName { get; set; } = "/dev/ttyUSB0";
     public Channel Channels { get; set; } = default!;
 
     public TransmitterService(
         ILogger<TransmitterService> logger,  
-        IOptions<NRF24> options,
         IServiceScopeFactory factory)
-    {
-        nrf = options.Value;
+    { 
 
         _logger = logger;
           
         using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
 
         _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<TransmitterService>>()!;
-
-        _factory = factory;
+        
+        validator = asyncScope.ServiceProvider.GetRequiredService<ChannelValuesValidator>();
 
         _nrf.SerialErrorReceived += (sender, e) =>
         {
@@ -61,23 +57,8 @@ public class TransmitterService : BackgroundService, IBGTxRx
         // ExecuteAsync is executed once and we have to take care of a mechanism ourselves that is kept during operation.
         // To do this, we can use a Periodic Timer, which, unlike other timers, does not block resources.
         // But instead, WaitForNextTickAsync provides a mechanism that blocks a task and can thus be used in a While loop.
-        using PeriodicTimer timer = new PeriodicTimer(_period);
-        try
-        {
-            // We cannot use the default dependency injection behavior, because ExecuteAsync is
-            // a long-running method while the background service is running.
-            // To prevent open resources and instances, only create the services and other references on a run
-            // Create scope, so we get request services
-            await using AsyncServiceScope asyncScope = _factory.CreateAsyncScope();
-            // Get service from scope 
-            validator = asyncScope.ServiceProvider.GetRequiredService<ChannelValuesValidator>();
-        }
-        catch (Exception e)
-        {
-            _logger.LogError($"{e}");
-            throw;
-        }
-         
+        using PeriodicTimer timer = new(_period);
+        
         // When ASP.NET Core is intentionally shut down, the background service receives information
         // via the stopping token that it has been canceled.
         // We check the cancellation to avoid blocking the application shutdown.
