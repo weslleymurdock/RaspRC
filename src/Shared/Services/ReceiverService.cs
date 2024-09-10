@@ -2,7 +2,8 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options; 
-using Shared.Models; 
+using Shared.Models;
+using System.IO.Ports;
 namespace Shared.Services;
 
 
@@ -17,6 +18,7 @@ public class ReceiverService : BackgroundService, IBGTxRx
     public bool IsEnabled { get; set; } = true;
     public string PortName { get; set; } = "/dev/ttyUSB0";
     public string Data { get; set; } = string.Empty;
+    public Channel Channels { get; set; } = default!;
 
     public ReceiverService(
         ILogger<ReceiverService> logger,
@@ -29,7 +31,23 @@ public class ReceiverService : BackgroundService, IBGTxRx
         using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
 
         _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<ReceiverService>>()!;
+        _nrf.SerialErrorReceived += (sender, e) =>
+        {
+            _logger.LogError($"Error received: {e}");
+            Channels.Value = default!;
+        };
 
+        _nrf.SerialDataReceived += (sender, e) =>
+        {
+            SerialPort sp = (SerialPort)sender;
+            Channels.HexValue = sp.ReadExisting();
+            for (int i = 0; i < Channels.HexValue.Length / 3; i++)
+            {
+                var value = Channels.HexValue.Substring(i * 3, 3);
+                _logger.LogInformation($"{value} : {int.Parse(value, System.Globalization.NumberStyles.HexNumber)}");
+            }
+            sp.DiscardInBuffer();
+        };
     }
 
     /// <summary>

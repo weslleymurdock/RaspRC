@@ -147,7 +147,7 @@ public class NRF24Service<T> : INRF24Service
         foreach (string cmd in commands)
         {
             await serial.WriteLineAsync(cmd);
-            Thread.Sleep(100);
+            Thread.Sleep(150);
         }
         var read = await serial.ReadExistingAsync();
         var ok = read?.ConfigurationResponse()!;
