@@ -48,8 +48,6 @@ public class ReceiverService : BackgroundService, IBGTxRx
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     { 
         using PeriodicTimer timer = new(_period);
-        
-        await _nrf.PutConfigurationAsync(nrf);
          
         while (!stoppingToken.IsCancellationRequested &&
             await timer.WaitForNextTickAsync(stoppingToken))

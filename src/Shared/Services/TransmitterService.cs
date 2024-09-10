@@ -77,11 +77,7 @@ public class TransmitterService : BackgroundService, IBGTxRx
             _logger.LogError($"{e}");
             throw;
         }
-
-        if (_nrf.NRFPortIsOpen)
-        {
-            await _nrf.PutConfigurationAsync(nrf);
-        }
+         
         // When ASP.NET Core is intentionally shut down, the background service receives information
         // via the stopping token that it has been canceled.
         // We check the cancellation to avoid blocking the application shutdown.
