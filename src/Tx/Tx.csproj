@@ -22,7 +22,7 @@
     <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(BuildingInsideVisualStudio)' == true">
     <Exec Command="scp -rp D:\github\RaspRC\src\Tx\bin\Debug\net8.0\* tx@rasprc.local:~/debug" />
   </Target>
 
