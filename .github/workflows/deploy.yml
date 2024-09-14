@@ -31,7 +31,7 @@ jobs:
       run: |
         cd ./src/Rx
         dotnet restore
-        dotnet build -c Release --no-restore
+        dotnet build -c Release --no-restore /p:PostBuildEvent=
         mkdir -p ${{ github.workspace }}/src/Rx/publish
         dotnet publish -c Release -r linux-arm64 /p:PublishDir=${{ github.workspace }}/src/Rx/publish
 
@@ -91,7 +91,7 @@ jobs:
         sudo chmod 755 -R /var/www/rasprc-tx
         cd ./src/Tx
         dotnet restore
-        dotnet build -c Release --no-restore
+        dotnet build -c Release --no-restore /p:PostBuildEvent=
         dotnet publish -c Release -r linux-arm64 
         sudo rm -rf /var/www/rasprc-tx/*
         sudo mv -v bin/Release/net8.0/linux-arm64/publish/* /var/www/rasprc-tx
