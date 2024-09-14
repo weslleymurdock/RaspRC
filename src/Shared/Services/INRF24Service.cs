@@ -9,12 +9,12 @@ public interface INRF24Service
     bool NRFPortIsOpen { get; }
     string[] Ports { get; }
 
-    void DiscartInputBuffer();
+    void DiscardInputBuffer();
     Task<NRF24> GetConfigurationAsync();
 
     Task<ICollection<string>> PutConfigurationAsync(NRF24 nrf);
 
-    Task<string> ReadAsync();
+    Task<string> ReadAsync(string to = "\n");
 
     Task<string> WriteAsync(string data);
      

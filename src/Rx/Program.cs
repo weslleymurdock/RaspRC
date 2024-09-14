@@ -5,8 +5,8 @@ using Shared.Validators;
 using System.IO.Ports;
 
 var builder = WebApplication.CreateBuilder(args); 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+//builder.Services.AddEndpointsApiExplorer();
+//builder.Services.AddSwaggerGen();
 builder.Services.AddSystemd();
 builder.Host.UseSystemd(); 
 builder.Services.AddValidatorsFromAssemblyContaining<NRFValidator>();
@@ -81,8 +81,8 @@ app.MapGet("/serialports", () =>
 // PutConfigurationAsync the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
 //{
-app.UseSwagger();
-app.UseSwaggerUI();
+//app.UseSwagger();
+//app.UseSwaggerUI();
 //}
 
 app.UseHttpsRedirection();

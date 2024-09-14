@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options; 
+using Shared.Extensions;
 using Shared.Models;
 using System.IO.Ports;
 namespace Shared.Services;
@@ -9,20 +9,19 @@ namespace Shared.Services;
 
 public class ReceiverService : BackgroundService, IBGTxRx
 {
-    private readonly TimeSpan _period = TimeSpan.FromMilliseconds(50);
-    private readonly INRF24Service _nrf;
-    private readonly ILogger<ReceiverService> _logger; 
-    private int _executionCount = 0; 
+    private readonly TimeSpan _period = TimeSpan.FromMilliseconds(20);
+    private readonly NRF24Service<ReceiverService> _nrf;
+    private readonly ILogger<ReceiverService> _logger;
     public bool IsEnabled { get; set; } = true;
     public string PortName { get; set; } = "/dev/ttyUSB0";
     public string Data { get; set; } = string.Empty;
     public Channel Channels { get; set; } = default!;
-
+    public string NextDataReceived = string.Empty;
     public ReceiverService(
-        ILogger<ReceiverService> logger, 
+        ILogger<ReceiverService> logger,
         IServiceScopeFactory factory)
     {
-        _logger = logger;  
+        _logger = logger;
         using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
 
         _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<ReceiverService>>()!;
@@ -32,18 +31,19 @@ public class ReceiverService : BackgroundService, IBGTxRx
             Channels.Value = default!;
         };
 
-        _nrf.SerialDataReceived += (sender, e) =>
+        _nrf.SerialDataReceived += async (sender, e) =>
         {
+
             try
             {
-                SerialPort sp = (SerialPort)sender;
-                Channels.HexValue = sp.ReadExisting();
-                for (int i = 0; i < Channels.HexValue.Length / 3; i++)
+                SerialPort serial = (SerialPort)sender ;
+                Data = await serial.ReadLineAsync();
+                while(Data.Length <= 23)
                 {
-                    var value = Channels.HexValue.Substring(i * 3, 3);
-                    _logger.LogInformation($"{value} : {int.Parse(value, System.Globalization.NumberStyles.HexNumber)}");
+                    Data += await serial.ReadToAsync("\n");
                 }
-                sp.DiscardInBuffer();
+                //logger.LogInformation($"Received data> {Data}");
+                serial.DiscardInBuffer();
             }
             catch (Exception ex)
             {
@@ -67,34 +67,37 @@ public class ReceiverService : BackgroundService, IBGTxRx
     /// <param name="stoppingToken">Cancelation token</param>
     /// <returns></returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    { 
+    {
         using PeriodicTimer timer = new(_period);
-        _nrf.DiscartInputBuffer(); //remove data on first run to sync 
+
+        _logger.LogInformation("started receiver service loop");
+
+        Data = string.Empty;
+
+        _nrf.DiscardInputBuffer();
+
+        _ = await _nrf.ReadLineAsync();
+
         while (!stoppingToken.IsCancellationRequested &&
             await timer.WaitForNextTickAsync(stoppingToken))
         {
             if (!IsEnabled)
             {
                 continue;
-            } 
-            try
-            { 
-                 
-                Data = await _nrf.ReadAsync();
-                _logger.LogInformation($"Data: {Data} Length: {Data.Length}");
-                
-                // Sample count increment
-                _executionCount++;
-                _logger.LogInformation($"Executed ReceiverService - Count: {_executionCount}");
             }
-            catch (OperationCanceledException e)
+            try
             {
-                _logger.LogError($"e carai {e}");
+                //blocks the loop until the data is ready
+                while (Data.Length <= 23) continue;
+                _logger.LogInformation($"Data: {Data} {Data.Length} ");
+                
+                Data = string.Empty;
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(
-                    $"Failed to execute PeriodicHostedService with exception message {ex.Message}. Good luck next round!");
+                Data = string.Empty;
+                NextDataReceived = string.Empty;
+                _logger.LogError(ex, $"Failed to execute PeriodicHostedService with exception . Good luck next round!");
             }
         }
     }

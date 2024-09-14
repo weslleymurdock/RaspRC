@@ -2,53 +2,43 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Shared.Models; 
+using Shared.Models;
 using Shared.Validators;
-using System.IO.Ports;
 
 namespace Shared.Services;
 public class TransmitterService : BackgroundService, IBGTxRx
 {
-    private readonly TimeSpan _period = TimeSpan.FromMilliseconds(50);
-    private readonly ILogger<TransmitterService> _logger; 
-    private readonly INRF24Service _nrf; 
-    private IValidator<Channel> validator = default!; 
-    private int _executionCount = 0; 
+    private readonly TimeSpan _period = TimeSpan.FromMilliseconds(20);
+    private readonly ILogger<TransmitterService> _logger;
+    private readonly NRF24Service<TransmitterService> _nrf;
+    private IValidator<Channel> validator = default!;
     public bool IsEnabled { get; set; } = true;
     public string PortName { get; set; } = "/dev/ttyUSB0";
     public Channel Channels { get; set; } = default!;
 
     public TransmitterService(
-        ILogger<TransmitterService> logger,  
+        ILogger<TransmitterService> logger,
         IServiceScopeFactory factory)
-    { 
+    {
 
         _logger = logger;
-          
+
         using AsyncServiceScope asyncScope = factory.CreateAsyncScope();
 
         _nrf = asyncScope.ServiceProvider.GetService<NRF24Service<TransmitterService>>()!;
-        
+
         validator = asyncScope.ServiceProvider.GetRequiredService<ChannelValuesValidator>();
 
         _nrf.SerialErrorReceived += (sender, e) =>
         {
             _logger.LogError($"Error received: {e}");
-            Channels.Value = default!;
         };
 
         _nrf.SerialDataReceived += (sender, e) =>
         {
-            SerialPort sp = (SerialPort)sender;
-            Channels.HexValue = sp.ReadExisting();
-            for (int i = 0; i < Channels.HexValue.Length / 3; i++)
-            {
-                var value = Channels.HexValue.Substring(i * 3, 3);
-                _logger.LogInformation($"{value} : {int.Parse(value, System.Globalization.NumberStyles.HexNumber)}");
-            }
-            sp.DiscardInBuffer();
+            _nrf.DiscardInputBuffer();
         };
+        _logger.LogInformation("started receiver service");
 
     }
 
@@ -58,7 +48,7 @@ public class TransmitterService : BackgroundService, IBGTxRx
         // To do this, we can use a Periodic Timer, which, unlike other timers, does not block resources.
         // But instead, WaitForNextTickAsync provides a mechanism that blocks a task and can thus be used in a While loop.
         using PeriodicTimer timer = new(_period);
-        
+
         // When ASP.NET Core is intentionally shut down, the background service receives information
         // via the stopping token that it has been canceled.
         // We check the cancellation to avoid blocking the application shutdown.
@@ -71,20 +61,18 @@ public class TransmitterService : BackgroundService, IBGTxRx
             }
 
             try
-            { 
-                Channels = new Channel([1000,1000,1000,1000,1000,1000,1000,1000]);
+            {
+                Channels = new Channel([1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700]);
                 var results = await validator.ValidateAsync(Channels);
                 if (results.IsValid)
                 {
-                    await _nrf.WriteAsync(Channels.HexValue);
+                    _ = await _nrf.WriteAsync($"{Channels.HexValue}");
+                    _logger.LogInformation($"{Channels.HexValue}");
                 }
 
                 //await receiverService.(Channels);
 
-                
-                // Sample count increment
-                _executionCount++;
-                _logger.LogInformation($"Executed TransmitterService - Count: {_executionCount}");
+
             }
             catch (Exception ex)
             {

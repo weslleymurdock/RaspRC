@@ -37,16 +37,57 @@ public static class SerialExtensions
         {
             if (port.BytesToRead > 0)
                 break;
-            await Task.Delay(100, cancellationToken).ConfigureAwait(true);
+            await Task.Delay(100, cancellationToken);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
 
         byte[] buffer = new byte[1];
 
-        await port.BaseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        await port.BaseStream.ReadAsync(buffer, cancellationToken);
 
         return buffer[0];
+    }
+
+    public static async ValueTask<string> ReadStringAsync(this SerialPort port, CancellationToken cancellationToken = default)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (port.BytesToRead > 0)
+                break;
+            await Task.Delay(100, cancellationToken);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        byte[] buffer = new byte[port.BytesToRead];
+
+        await port.BaseStream.ReadAsync(buffer, cancellationToken);
+
+        string read = port.Encoding.GetString(buffer);
+        
+        if (read.Contains("\n"))
+            read = read.Substring(0, read.IndexOf("\n"));
+        
+        return read;
+    }
+
+    public static async ValueTask<byte[]> ReadBytesAsync(this SerialPort port, CancellationToken cancellationToken = default)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (port.BytesToRead > 0)
+                break;
+            await Task.Delay(100, cancellationToken);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        byte[] buffer = new byte[port.BytesToRead];
+
+        await port.BaseStream.ReadAsync(buffer, cancellationToken);
+
+        return buffer;
     }
 
     public static async ValueTask<char> ReadCharAsync(this SerialPort port, CancellationToken cancellationToken = default)
@@ -57,7 +98,7 @@ public static class SerialExtensions
         {
             if (port.BytesToRead >= byte_count)
                 break;
-            await Task.Delay(100, cancellationToken).ConfigureAwait(true);
+            await Task.Delay(100, cancellationToken);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -69,38 +110,22 @@ public static class SerialExtensions
 
     public static async ValueTask<string> ReadLineAsync(this SerialPort port, CancellationToken cancellationToken = default)
     {
-        int byte_count = port.Encoding.GetMaxByteCount(1);
-
-        byte[] buffer = new byte[byte_count];
-
-        string result = "";
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                if (port.BytesToRead >= byte_count)
-                    break;
-                await Task.Delay(100, cancellationToken).ConfigureAwait(true);
-            }
-            await port.BaseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-
-            char extracted_char = port.Encoding.GetChars(buffer)[0];
-
-            if (extracted_char.Equals(Environment.NewLine))
-            {
+            if (port.BytesToRead > 0)
                 break;
-            }
-            else
-            {
-                result += extracted_char;
-            }
+            await Task.Delay(100, cancellationToken);
         }
-
+        byte[] buffer = new byte[port.BytesToRead];
+       
+        await port.BaseStream.ReadAsync(buffer, cancellationToken);
+        string result = port.Encoding.GetString(buffer);
+        result = result.Contains(port.NewLine) ? result.Replace(result.Substring(result.IndexOf(port.NewLine)), "") : result;
         return result;
     }
 
-    public static async ValueTask<string> ReadUntil(this SerialPort port, string value, CancellationToken cancellationToken = default)
+    public static async ValueTask<string> ReadToAsync(this SerialPort port, string value, CancellationToken cancellationToken = default)
     {
         int byte_count = port.Encoding.GetMaxByteCount(1);
 
@@ -114,7 +139,7 @@ public static class SerialExtensions
             {
                 if (port.BytesToRead >= byte_count)
                     break;
-                await Task.Delay(100, cancellationToken).ConfigureAwait(true);
+                await Task.Delay(100, cancellationToken);
             }
 
             await port.BaseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
@@ -152,18 +177,18 @@ public static class SerialExtensions
         return buffer.Length == 0 ? ValueTask.CompletedTask : port.BaseStream.WriteAsync(buffer, cancellationToken); 
     }
 
-    public static Task WriteAsync(this SerialPort port, byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+    public static async Task WriteAsync(this SerialPort port, byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
     {
-        return port.BaseStream.WriteAsync(buffer, offset, count, cancellationToken);
+        await port.BaseStream.WriteAsync(buffer.AsMemory(offset, count), cancellationToken);
     }
 
-    public static ValueTask WriteLineAsync(this SerialPort port, string value, CancellationToken cancellationToken = default)
+    public static async ValueTask WriteLineAsync(this SerialPort port, string value, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(value))
         {
-            return ValueTask.CompletedTask;
+            return;
         }
         value += Environment.NewLine;
-        return port.BaseStream.WriteAsync(port.Encoding.GetBytes(value), cancellationToken);
+        await port.BaseStream.WriteAsync(port.Encoding.GetBytes(value), cancellationToken);
     }
 }
